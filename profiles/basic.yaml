@@ -1,0 +1,11 @@
+name: basic
+description: Minimal setup for solo projects and MVPs.
+default_skills:
+  - ios-architecture
+  - swiftui-rules
+  - testing-rules
+flags:
+  strict_self_review: false
+  require_regression_tests: false
+  include_performance_guidance: false
+  include_security_privacy_emphasis: true

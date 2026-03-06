@@ -1,0 +1,16 @@
+name: advanced
+description: Strict setup for complex apps and long-lived codebases.
+default_skills:
+  - ios-architecture
+  - swiftui-rules
+  - concurrency-rules
+  - networking-rules
+  - testing-rules
+  - logging-rules
+flags:
+  strict_self_review: true
+  require_regression_tests: true
+  include_performance_guidance: true
+  include_security_privacy_emphasis: true
+  require_risk_summary: true
+  require_state_transition_thinking: true
