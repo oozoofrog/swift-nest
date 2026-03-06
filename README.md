@@ -2,6 +2,10 @@
 
 iOS/SwiftUI 프로젝트에서 AI 에이전트가 항상 같은 규칙을 읽고, 선택한 스킬만 적용하며, 프로젝트 성숙도에 따라 단계적으로 복잡도를 올릴 수 있게 해주는 템플릿 리포입니다.
 
+Canonical GitHub repository:
+
+`https://github.com/oozoofrog/ios-ai-harness-starter`
+
 이 리포는 다음 문제를 풀기 위해 만들어졌습니다.
 
 - 프로젝트마다 다른 규칙 문서를 매번 수동으로 복붙하는 문제
@@ -156,6 +160,87 @@ python3 scripts/harness.py upgrade --to intermediate
 `.ai-harness/state.json` 에 현재 선택 상태가 저장됩니다.
 이 파일을 기준으로 이후 업그레이드/재렌더링이 수행됩니다.
 저장소 안의 경로를 가리킬 때는 상대 경로로 저장되어, 다른 머신으로 옮겨도 상태 파일이 깨지지 않게 유지됩니다.
+
+## Existing iOS Repo에 설치하기
+
+이 스타터는 "새 템플릿 프로젝트"로만 쓰는 것이 아니라, 이미 존재하는 iOS 저장소에 하네스를 주입하는 용도로도 사용할 수 있습니다.
+
+에이전트는 이 GitHub 링크만 전달받아도 아래 순서로 하네스를 구성하면 됩니다.
+
+1. 이 저장소의 README를 읽고 설치 규칙을 따른다.
+2. 대상 iOS 저장소 루트에 아래 파일과 폴더를 가져온다.
+3. 대상 프로젝트에 맞는 `config/project.yaml`을 만든다.
+4. `python3 scripts/harness.py init --config config/project.yaml ...` 를 대상 저장소 루트에서 실행한다.
+5. 생성된 `Docs/` 와 `.ai-harness/` 를 커밋한다.
+
+대상 iOS 저장소에 포함해야 하는 최소 파일:
+
+```text
+scripts/harness.py
+templates/
+profiles/
+config/project.example.yaml
+Makefile
+```
+
+권장 추가 작업:
+
+- 기존 `.gitignore`가 `.ai-harness/` 를 무시하지 않는지 확인
+- 기존 `Docs/` 가 있다면 충돌 여부를 먼저 검토
+- 프로젝트 특성에 맞게 프로필과 스킬을 명시적으로 선택
+
+예시 설치 흐름:
+
+```bash
+git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
+rsync -av \
+  /tmp/ios-ai-harness-starter/scripts \
+  /tmp/ios-ai-harness-starter/templates \
+  /tmp/ios-ai-harness-starter/profiles \
+  /tmp/ios-ai-harness-starter/config \
+  /tmp/ios-ai-harness-starter/Makefile \
+  /path/to/your-ios-repo/
+
+cd /path/to/your-ios-repo
+cp config/project.example.yaml config/project.yaml
+python3 scripts/harness.py init \
+  --config config/project.yaml \
+  --profile intermediate \
+  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
+```
+
+## Agent Bootstrap Prompt
+
+아래 프롬프트를 그대로 에이전트에게 주면, 이 GitHub 링크만으로 대상 iOS 저장소에 하네스를 구성하는 시작점으로 사용할 수 있습니다.
+
+```text
+Use this repository as the harness starter:
+https://github.com/oozoofrog/ios-ai-harness-starter
+
+Your job is to install this AI harness into the current iOS repository.
+
+Follow this process:
+1. Read the README from the starter repository first.
+2. Copy the required harness files into the current repository:
+   - scripts/harness.py
+   - templates/
+   - profiles/
+   - config/project.example.yaml
+   - Makefile
+3. Create or update config/project.yaml for this app based on the actual project.
+4. Choose an appropriate profile and skills for this codebase.
+5. Run the harness initializer from the current repository root.
+6. Keep Docs/ and .ai-harness/ checked into the repository.
+7. Summarize the selected profile, selected skills, generated files, and any assumptions.
+
+Constraints:
+- Do not break the existing Xcode project structure.
+- Do not ignore .ai-harness/.
+- Prefer minimal, reviewable changes.
+- If Docs/ already exists, merge carefully instead of blindly overwriting unrelated files.
+```
+
+이 프롬프트의 목적은 "에이전트가 스타터 저장소를 참조해서 현재 앱 저장소 안에 하네스를 설치"하도록 만드는 것입니다. 즉 스타터 저장소를 따로 유지하면서도, 실제 운영은 대상 iOS 프로젝트 저장소 안에서 이루어지게 합니다.
 
 ## 라이선스
 
