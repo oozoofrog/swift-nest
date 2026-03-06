@@ -219,7 +219,7 @@ This document defines standard execution workflows for AI agents.
    - presentation/viewmodel
    - view
 7. Add/update tests.
-8. Review for rule violations.
+8. Review actor isolation, `Sendable` boundaries, and legacy import risks for async code paths.
 9. Summarize changes and remaining risks.
 
 ## Workflow: Fix Bug
@@ -229,7 +229,7 @@ This document defines standard execution workflows for AI agents.
 4. Confirm impacted state transitions / user flows.
 5. Implement root-cause fix, not symptom-only patch.
 6. Add regression test when practical.
-7. Review for side effects.
+7. Review for side effects, including cross-actor access and non-`Sendable` value movement.
 8. Summarize what changed and why.
 
 ## Workflow: Refactor
@@ -259,6 +259,8 @@ This document defines standard execution workflows for AI agents.
 - no unrelated file changes
 - no business logic moved into View
 - async state updates are actor-safe
+- actor isolation and `Sendable` boundaries were checked for changed async code
+- `preconcurrency` imports or legacy APIs were reviewed when diagnostics were involved
 - errors are not silently swallowed
 - tests cover the intended behavior
 - implementation matches existing project conventions
@@ -317,6 +319,10 @@ Apply this skill whenever async work, task orchestration, cancellation, or actor
 - UI-facing state changes should happen on the correct actor.
 - Support cancellation for user-triggered async operations where relevant.
 - Consider re-entrancy and repeated invocation behavior.
+- Verify `Sendable` boundaries when values move across actors or tasks.
+- Do not call actor-isolated APIs from synchronous nonisolated contexts.
+- Be explicit about `nonisolated` async behavior when execution semantics matter.
+- Audit `preconcurrency` or legacy imports before suppressing concurrency diagnostics.
 - Prefer predictable state transitions over ad hoc async mutation.
 
 

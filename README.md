@@ -153,7 +153,7 @@ python3 scripts/harness.py list-profiles
 python3 scripts/harness.py init --config my-project.yaml
 python3 scripts/harness.py render-context
 python3 scripts/harness.py upgrade --to intermediate
-python3 scripts/extract_xcode_chat_resources.py --xcode-app /Applications/Xcode.app
+python3 scripts/extract_xcode_reference_docs.py --xcode-app /Applications/Xcode.app
 ```
 
 ## 생성 상태 파일
@@ -161,6 +161,27 @@ python3 scripts/extract_xcode_chat_resources.py --xcode-app /Applications/Xcode.
 `.ai-harness/state.json` 에 현재 선택 상태가 저장됩니다.
 이 파일을 기준으로 이후 업그레이드/재렌더링이 수행됩니다.
 저장소 안의 경로를 가리킬 때는 상대 경로로 저장되어, 다른 머신으로 옮겨도 상태 파일이 깨지지 않게 유지됩니다.
+
+## Optional Reference Docs
+
+하네스 규칙을 보강할 때 참고할 수 있도록, Xcode에 포함된 Apple 문서만 별도로 추출할 수 있습니다.
+
+```bash
+make extract-xcode-docs XCODE_APP=/Applications/Xcode.app
+```
+
+이 추출은 `에이전트 프롬프트`를 다루지 않습니다. 대신 아래 두 문서군만 정리합니다.
+
+- `IDEIntelligenceChat.framework/Resources/AdditionalDocumentation/*.md`
+- `XcodeDefault.xctoolchain/usr/share/doc/swift/diagnostics/*.md` 중 하네스에 직접 도움 되는 동시성/안전성 문서
+
+추출 결과는 `references/xcode-<version>-docs/` 아래에 생성됩니다.
+
+- `apple-guides/`: 최신 Apple 기능/프레임워크 가이드
+- `swift-diagnostics/`: Swift 동시성/격리/Sendable 관련 진단 문서
+- `README.md`: 이 참조 세트의 목적과 추천 읽기 순서
+- `SUMMARY.md`: 카테고리/파일 수 요약
+- `MANIFEST.json`: 기계가 읽기 쉬운 인덱스
 
 ## Existing iOS Repo에 설치하기
 
@@ -242,33 +263,6 @@ Constraints:
 ```
 
 이 프롬프트의 목적은 "에이전트가 스타터 저장소를 참조해서 현재 앱 저장소 안에 하네스를 설치"하도록 만드는 것입니다. 즉 스타터 저장소를 따로 유지하면서도, 실제 운영은 대상 iOS 프로젝트 저장소 안에서 이루어지게 합니다.
-
-## Xcode Prompt Reference Extraction
-
-이 저장소에는 Xcode 내부의 `IDEIntelligenceChat` 리소스를 하네스 설계 관점으로 재구성해 저장하는 추출 스크립트도 포함되어 있습니다.
-
-```bash
-make extract-xcode-chat
-```
-
-또는:
-
-```bash
-python3 scripts/extract_xcode_chat_resources.py --xcode-app /Volumes/eyedisk/Applications/Xcode.app
-```
-
-추출 결과는 `references/xcode-<version>/` 아래에 생성되며, 다음처럼 재구성됩니다.
-
-- `prompts/system-core/`: 기본 시스템 프롬프트와 tool-assisted 변형
-- `prompts/integration-and-editing/`: 파일 수정/통합형 프롬프트
-- `prompts/planning-and-variants/`: planner 스타일과 모델별 변형
-- `prompts/context-and-grounding/`: query, current file, selection, issues 같은 컨텍스트 주입 템플릿
-- `prompts/guidelines-and-retrieval/`: 응답 제약, 검색 확장, retrieval 힌트
-- `prompts/generation-tools/`: explain/document/preview/playground 생성 템플릿
-- `docs/additional-documentation/`: Xcode가 함께 번들한 Apple 기술 문서
-- `metadata/`: agent version, approved model pairing 같은 메타데이터 JSON
-
-이 레퍼런스는 하네스의 프로필, 스킬, 프롬프트 설계를 연구하거나 Xcode의 기본 행동과 비교할 때 쓰는 정적 자료입니다. 런타임 의존성은 아닙니다.
 
 ## 라이선스
 
