@@ -1,12 +1,18 @@
 {
-  "profile": "intermediate",
-  "skills": [
+  "config_path" : "config\/project.example.yaml",
+  "context_path" : ".ai-harness\/rendered_context.md",
+  "profile" : "intermediate",
+  "skills" : [
     "concurrency-rules",
     "ios-architecture",
     "location-rules",
     "swiftui-rules",
     "testing-rules"
   ],
-  "config_path": "config/project.example.yaml",
-  "context_path": ".ai-harness/rendered_context.md"
+  "workflows" : [
+    "add-feature",
+    "fix-bug",
+    "refactor",
+    "build"
+  ]
 }

@@ -22,6 +22,7 @@ Canonical GitHub repository:
 하네스는 기본적으로 아래와 같은 프로젝트 문서와 상태 파일을 생성합니다.
 
 ```text
+AGENTS.md
 Docs/
   AI_RULES.md
   AI_WORKFLOWS.md
@@ -33,6 +34,11 @@ Docs/
   selected_profile.yaml
   selected_skills.txt
   rendered_context.md
+  workflows/
+    add-feature.md
+    fix-bug.md
+    refactor.md
+    build.md
 ```
 
 `Docs/` 와 `.ai-harness/` 는 하네스의 핵심 자산이므로 기본적으로 버전 관리에 포함하는 것을 권장합니다.
@@ -79,6 +85,8 @@ cp config/project.example.yaml config/project.yaml
 
 `config/project.yaml` 안의 값을 현재 프로젝트에 맞게 수정합니다.
 
+프로젝트에서 선호하는 verification 명령이 이미 정해져 있다면, optional `build_command` 와 `test_command` 도 함께 채워두면 좋습니다.
+
 ### 3. 인터랙티브 초기화 실행
 
 ```bash
@@ -99,6 +107,8 @@ cp config/project.example.yaml config/project.yaml
 ```bash
 ./harness render-context
 ./harness upgrade --to advanced
+./harness workflow list
+./harness workflow scaffold permissions review
 ```
 
 `upgrade` 는 기존 `.ai-harness/state.json` 이 있어야 하므로 먼저 `init` 을 실행해야 합니다.
@@ -162,7 +172,7 @@ test -f config/project.yaml || cp config/project.example.yaml config/project.yam
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
 ```
 
-프로젝트에 위치 권한, HealthKit, 구조화 로그가 이미 중요하게 들어가 있다면 해당 스킬도 초기화 시점에 함께 추가하는 것이 좋습니다.
+프로젝트에 위치 권한, HealthKit, 구조화 로그가 이미 중요하게 들어가 있다면 해당 스킬도 초기화 시점에 함께 추가하는 것이 좋습니다. `permissions`, `networking`, `review` 같은 optional workflow scaffold는 이후 `./harness workflow scaffold ...`로 추가합니다.
 
 ### 3. 하네스를 먼저 도입하고 이후 더 발전시켜 적용하는 경우
 
@@ -190,6 +200,8 @@ test -f config/project.yaml || cp config/project.example.yaml config/project.yam
 ```
 
 이 방식에서는 `.ai-harness/state.json` 이 이후 rerender 와 upgrade 를 이어주는 기준점 역할을 합니다.
+
+optional workflow는 기본 비활성입니다. `init` 를 다시 실행하면 workflow 세트는 기본 core workflow로 초기화됩니다.
 
 ## 관리 대상 파일
 
@@ -300,6 +312,7 @@ Constraints:
 - `selected_profile.yaml`
 - `selected_skills.txt`
 - `rendered_context.md`
+- `workflows/*.md`
 
 가능하면 상태 파일 안의 경로는 저장소 기준 상대 경로로 저장되어, 다른 머신으로 옮겨도 깨지지 않게 유지됩니다.
 
@@ -318,6 +331,9 @@ make install-harness TARGET=/path/to/app-repo
 ./harness list-skills
 ./harness list-profiles
 ./harness init --config config/project.yaml
+./harness workflow list
+./harness workflow print add-feature
+./harness workflow scaffold permissions review
 ./harness render-context
 ./harness upgrade --to intermediate
 make init CONFIG=config/project.yaml

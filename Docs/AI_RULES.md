@@ -178,15 +178,19 @@ Do not optimize prematurely.
 - Call out state transition risks when async or permission logic is involved.
 
 ## Required Delivery Format for Agent Responses
-Before implementation, provide:
+For straightforward tasks:
+1. Inspect relevant code and constraints first.
+2. Implement directly when the request is clear.
+3. Finish with:
+   - files changed
+   - behavior summary
+   - tests added/updated or not run
+   - risks / limitations
+   - any rule deviations, if any
+
+For ambiguous or high-risk tasks:
 1. Applicable rules summary
 2. Planned file changes
 3. Short implementation strategy
 4. Test plan
-
-After implementation, provide:
-1. Files changed
-2. Behavior summary
-3. Tests added/updated
-4. Risks / limitations
-5. Any rule deviations, if any
+5. Then implement and finish with the same post-implementation summary.

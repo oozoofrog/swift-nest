@@ -2,6 +2,8 @@
 
 This document defines standard execution workflows for AI agents.
 
+Scaffolded workflow entry files may also be generated under `.ai-harness/workflows/`. When present, treat those files as the task-specific execution entrypoints derived from this document.
+
 ## Workflow: Add Feature
 1. Read `Docs/AI_RULES.md` and relevant `Docs/AI_SKILLS/*` files.
 2. Summarize applicable rules.

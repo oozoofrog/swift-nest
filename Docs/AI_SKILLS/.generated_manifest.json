@@ -1,10 +1,10 @@
 {
-  "files": [
+  "files" : [
     "concurrency-rules.md",
     "ios-architecture.md",
     "location-rules.md",
     "swiftui-rules.md",
     "testing-rules.md"
   ],
-  "profile": "intermediate"
+  "profile" : "intermediate"
 }

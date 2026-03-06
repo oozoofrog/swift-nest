@@ -25,14 +25,33 @@ struct ParsedArguments {
 struct HarnessState: Codable {
     var profile: String
     var skills: [String]
+    var workflows: [String]
     var configPath: String
     var contextPath: String
 
     enum CodingKeys: String, CodingKey {
         case profile
         case skills
+        case workflows
         case configPath = "config_path"
         case contextPath = "context_path"
+    }
+
+    init(profile: String, skills: [String], workflows: [String], configPath: String, contextPath: String) {
+        self.profile = profile
+        self.skills = skills
+        self.workflows = workflows
+        self.configPath = configPath
+        self.contextPath = contextPath
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        profile = try container.decode(String.self, forKey: .profile)
+        skills = try container.decode([String].self, forKey: .skills)
+        workflows = try container.decodeIfPresent([String].self, forKey: .workflows) ?? HarnessCLI.defaultWorkflowNames
+        configPath = try container.decode(String.self, forKey: .configPath)
+        contextPath = try container.decode(String.self, forKey: .contextPath)
     }
 }
 
@@ -216,6 +235,8 @@ enum HarnessCLI {
                 return
             }
             try runUpgrade(parsed: parsed, repository: repository)
+        case "workflow":
+            try runWorkflow(arguments: remaining, repository: repository)
         case "render-context":
             let parsed = try parse(remaining, valueOptions: [], flagOptions: ["--help", "-h"])
             if parsed.contains("--help") || parsed.contains("-h") {
@@ -300,9 +321,32 @@ enum HarnessCLI {
             skills = try chooseSkillsInteractively(defaultSkills: defaultSkills, repository: repository)
         }
 
-        let context = try normalizeContext(config: config, profileName: profileName)
+        let workflows = defaultWorkflowNames
+        let context = mergedContext(
+            base: try normalizeContext(config: config, profileName: profileName),
+            extra: workflowContext(config: config, skills: skills, workflows: workflows)
+        )
         try writeDocs(context: context, skills: skills, profileName: profileName, repository: repository)
-        let contextURL = try renderContextBundle(profileName: profileName, skills: skills, repository: repository)
+        let renderedWorkflows = try scaffoldWorkflowFiles(
+            config: config,
+            profileName: profileName,
+            skills: skills,
+            workflows: workflows,
+            repository: repository
+        )
+        try writeAgentsFile(
+            config: config,
+            profileName: profileName,
+            skills: skills,
+            workflows: renderedWorkflows,
+            repository: repository
+        )
+        let contextURL = try renderContextBundle(
+            profileName: profileName,
+            skills: skills,
+            workflows: renderedWorkflows,
+            repository: repository
+        )
 
         try repository.fileManager.createDirectory(at: repository.stateDirectoryURL, withIntermediateDirectories: true)
         let selectedProfileURL = repository.stateDirectoryURL.appendingPathComponent("selected_profile.yaml")
@@ -315,6 +359,7 @@ enum HarnessCLI {
         let state = HarnessState(
             profile: profileName,
             skills: skills,
+            workflows: renderedWorkflows,
             configPath: repository.serializeStatePath(configURL),
             contextPath: repository.serializeStatePath(contextURL)
         )
@@ -342,13 +387,37 @@ enum HarnessCLI {
         let profile = try HarnessDocumentLoader.loadObject(at: repository.profileURL(named: targetProfile))
         let config = try HarnessDocumentLoader.loadObject(at: configURL)
         let mergedSkills = Array(Set(state.skills).union(HarnessDocumentLoader.stringArray(profile, key: "default_skills"))).sorted()
-        let context = try normalizeContext(config: config, profileName: targetProfile)
+        let workflows = normalizedWorkflowNames(state.workflows)
+        let context = mergedContext(
+            base: try normalizeContext(config: config, profileName: targetProfile),
+            extra: workflowContext(config: config, skills: mergedSkills, workflows: workflows)
+        )
 
         try writeDocs(context: context, skills: mergedSkills, profileName: targetProfile, repository: repository)
-        let contextURL = try renderContextBundle(profileName: targetProfile, skills: mergedSkills, repository: repository)
+        let renderedWorkflows = try scaffoldWorkflowFiles(
+            config: config,
+            profileName: targetProfile,
+            skills: mergedSkills,
+            workflows: workflows,
+            repository: repository
+        )
+        try writeAgentsFile(
+            config: config,
+            profileName: targetProfile,
+            skills: mergedSkills,
+            workflows: renderedWorkflows,
+            repository: repository
+        )
+        let contextURL = try renderContextBundle(
+            profileName: targetProfile,
+            skills: mergedSkills,
+            workflows: renderedWorkflows,
+            repository: repository
+        )
 
         state.profile = targetProfile
         state.skills = mergedSkills
+        state.workflows = renderedWorkflows
         state.contextPath = repository.serializeStatePath(contextURL)
         try repository.saveState(state)
 
@@ -364,7 +433,13 @@ enum HarnessCLI {
 
     static func runRenderContext(repository: HarnessRepository) throws {
         let state = try repository.loadState()
-        let contextURL = try renderContextBundle(profileName: state.profile, skills: state.skills, repository: repository)
+        let workflows = normalizedWorkflowNames(state.workflows)
+        let contextURL = try renderContextBundle(
+            profileName: state.profile,
+            skills: state.skills,
+            workflows: workflows,
+            repository: repository
+        )
         print(contextURL.path)
     }
 
@@ -380,6 +455,140 @@ enum HarnessCLI {
             let description = HarnessDocumentLoader.string(data, key: "description", default: "")
             print("\(profileURL.deletingPathExtension().lastPathComponent): \(description)")
         }
+    }
+
+    static func runWorkflow(arguments: [String], repository: HarnessRepository) throws {
+        guard let subcommand = arguments.first else {
+            printWorkflowUsage()
+            return
+        }
+
+        if subcommand == "-h" || subcommand == "--help" || subcommand == "help" {
+            printWorkflowUsage()
+            return
+        }
+
+        let remaining = Array(arguments.dropFirst())
+
+        switch subcommand {
+        case "list":
+            let parsed = try parse(remaining, valueOptions: [], flagOptions: ["--help", "-h"])
+            if parsed.contains("--help") || parsed.contains("-h") {
+                printWorkflowListUsage()
+                return
+            }
+            try runWorkflowList(repository: repository)
+        case "print":
+            let parsed = try parse(remaining, valueOptions: [], flagOptions: ["--help", "-h"])
+            if parsed.contains("--help") || parsed.contains("-h") {
+                printWorkflowPrintUsage()
+                return
+            }
+            try runWorkflowPrint(parsed: parsed, repository: repository)
+        case "scaffold":
+            let parsed = try parse(remaining, valueOptions: [], flagOptions: ["--help", "-h"])
+            if parsed.contains("--help") || parsed.contains("-h") {
+                printWorkflowScaffoldUsage()
+                return
+            }
+            try runWorkflowScaffold(parsed: parsed, repository: repository)
+        default:
+            throw HarnessError("Unknown workflow subcommand: \(subcommand)")
+        }
+    }
+
+    static func runWorkflowList(repository: HarnessRepository) throws {
+        let enabled = try currentWorkflowSet(repository: repository)
+        for definition in orderedWorkflowDefinitions() {
+            let kind = definition.isDefault ? "default" : "optional"
+            let status = enabled.contains(definition.name) ? "enabled" : "available"
+            print("\(definition.name) [\(kind), \(status)]: \(definition.description)")
+        }
+    }
+
+    static func runWorkflowPrint(parsed: ParsedArguments, repository: HarnessRepository) throws {
+        guard parsed.positionals.count == 1 else {
+            throw HarnessError("workflow print requires exactly one workflow name.")
+        }
+
+        let name = parsed.positionals[0]
+        let (state, config) = try currentStateAndConfig(repository: repository)
+        let content = try renderWorkflow(
+            named: name,
+            config: config,
+            profileName: state.profile,
+            skills: state.skills,
+            workflows: currentWorkflowSet(from: state, extraNames: []),
+            repository: repository
+        )
+        print(content)
+    }
+
+    static func runWorkflowScaffold(parsed: ParsedArguments, repository: HarnessRepository) throws {
+        let (state, config) = try currentStateAndConfig(repository: repository)
+        let workflows = try currentWorkflowSet(from: state, extraNames: parsed.positionals)
+        let renderedWorkflows = try scaffoldWorkflowFiles(
+            config: config,
+            profileName: state.profile,
+            skills: state.skills,
+            workflows: workflows,
+            repository: repository
+        )
+        try writeAgentsFile(
+            config: config,
+            profileName: state.profile,
+            skills: state.skills,
+            workflows: renderedWorkflows,
+            repository: repository
+        )
+        let contextURL = try renderContextBundle(
+            profileName: state.profile,
+            skills: state.skills,
+            workflows: renderedWorkflows,
+            repository: repository
+        )
+
+        var updatedState = state
+        updatedState.workflows = renderedWorkflows
+        updatedState.contextPath = repository.serializeStatePath(contextURL)
+        try repository.saveState(updatedState)
+
+        print("Scaffolded workflows: \(renderedWorkflows.joined(separator: ", "))")
+    }
+
+    static func currentStateAndConfig(repository: HarnessRepository) throws -> (HarnessState, [String: Any]) {
+        let state = try repository.loadState()
+        let configURL = repository.resolveStatePath(state.configPath)
+        guard repository.fileManager.fileExists(atPath: configURL.path) else {
+            throw HarnessError("Config path not found: \(configURL.path)")
+        }
+        let config = try HarnessDocumentLoader.loadObject(at: configURL)
+        return (state, config)
+    }
+
+    static func currentWorkflowSet(repository: HarnessRepository) throws -> [String] {
+        if let state = try? repository.loadState() {
+            return normalizedWorkflowNames(state.workflows)
+        }
+        return defaultWorkflowNames
+    }
+
+    static func currentWorkflowSet(from state: HarnessState, extraNames: [String]) throws -> [String] {
+        let base = Set(normalizedWorkflowNames(state.workflows))
+        let extras = try validateWorkflowNames(extraNames)
+        let merged = base.union(extras)
+        return orderedWorkflowDefinitions().map(\.name).filter { merged.contains($0) }
+    }
+
+    static func validateWorkflowNames(_ names: [String]) throws -> Set<String> {
+        var valid: Set<String> = []
+        for name in names {
+            guard workflowDefinitions[name] != nil else {
+                throw HarnessError("Unknown workflow: \(name)")
+            }
+            valid.insert(name)
+        }
+        return valid
     }
 
     static func parse(_ args: [String], valueOptions: Set<String>, flagOptions: Set<String>) throws -> ParsedArguments {
@@ -493,13 +702,24 @@ enum HarnessCLI {
         try data.write(to: manifestURL)
     }
 
-    static func renderContextBundle(profileName: String, skills: [String], repository: HarnessRepository) throws -> URL {
+    static func renderContextBundle(
+        profileName: String,
+        skills: [String],
+        workflows: [String],
+        repository: HarnessRepository
+    ) throws -> URL {
         let docsURL = repository.rootURL.appendingPathComponent("Docs", isDirectory: true)
         let outputDirectoryURL = repository.stateDirectoryURL
         try repository.fileManager.createDirectory(at: outputDirectoryURL, withIntermediateDirectories: true)
         let outputURL = outputDirectoryURL.appendingPathComponent("rendered_context.md")
 
         var sections: [String] = []
+        let agentsURL = repository.rootURL.appendingPathComponent("AGENTS.md")
+        if repository.fileManager.fileExists(atPath: agentsURL.path) {
+            let content = try String(contentsOf: agentsURL, encoding: .utf8)
+            sections.append("\n\n<!-- AGENTS.md -->\n\n\(content)")
+        }
+
         for name in ["AI_RULES.md", "AI_WORKFLOWS.md", "AI_PROMPT_ENTRY.md"] {
             let fileURL = docsURL.appendingPathComponent(name)
             if repository.fileManager.fileExists(atPath: fileURL.path) {
@@ -516,7 +736,23 @@ enum HarnessCLI {
             }
         }
 
-        let header = "# Rendered AI Harness Context\n\nProfile: \(profileName)\n\nSkills: \(skills.joined(separator: ", "))\n"
+        for workflow in normalizedWorkflowNames(workflows) {
+            let fileURL = repository.stateDirectoryURL.appendingPathComponent("workflows/\(workflow).md")
+            if repository.fileManager.fileExists(atPath: fileURL.path) {
+                let content = try String(contentsOf: fileURL, encoding: .utf8)
+                sections.append("\n\n<!-- workflows/\(workflow).md -->\n\n\(content)")
+            }
+        }
+
+        let header = """
+        # Rendered AI Harness Context
+
+        Profile: \(profileName)
+
+        Skills: \(skills.joined(separator: ", "))
+
+        Workflows: \(normalizedWorkflowNames(workflows).joined(separator: ", "))
+        """
         try (header + sections.joined()).write(to: outputURL, atomically: true, encoding: .utf8)
         return outputURL
     }
@@ -673,6 +909,7 @@ enum HarnessCLI {
               install        Install harness-managed files into a target repository
               init           Initialize docs from config, profile, and skills
               upgrade        Upgrade to a stricter profile
+              workflow       Manage workflow scaffolds
               render-context Render the combined context bundle
               list-skills    List available skills
               list-profiles  List available profiles
@@ -690,6 +927,31 @@ enum HarnessCLI {
 
     static func printUpgradeUsage() {
         print("usage: harness upgrade --to <profile>")
+    }
+
+    static func printWorkflowUsage() {
+        print(
+            """
+            usage: harness workflow <subcommand> [options]
+
+            Subcommands:
+              list                 List supported workflows and current status
+              print <name>         Print one rendered workflow to stdout
+              scaffold [name ...]  Regenerate current workflows or add optional workflows
+            """
+        )
+    }
+
+    static func printWorkflowListUsage() {
+        print("usage: harness workflow list")
+    }
+
+    static func printWorkflowPrintUsage() {
+        print("usage: harness workflow print <name>")
+    }
+
+    static func printWorkflowScaffoldUsage() {
+        print("usage: harness workflow scaffold [name ...]")
     }
 
     static func printRenderContextUsage() {

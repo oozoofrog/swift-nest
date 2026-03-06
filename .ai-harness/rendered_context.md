@@ -4,6 +4,59 @@ Profile: intermediate
 
 Skills: concurrency-rules, ios-architecture, location-rules, swiftui-rules, testing-rules
 
+Workflows: add-feature, fix-bug, refactor, build
+
+<!-- AGENTS.md -->
+
+# AGENTS.md for RunTrack
+
+You are working in the RunTrack iOS codebase.
+
+## Start Here
+- Inspect the relevant code before editing.
+- Implement directly when the request is straightforward.
+- Provide a brief plan first only when the task is ambiguous, risky, or explicitly asks for planning.
+- Keep the diff minimal and reviewable.
+- Run or describe verification before finishing.
+- If the user asks for a review, lead with findings first.
+
+## Project Context
+- Architecture: MVVM with Repository pattern
+- UI framework: SwiftUI
+- Networking boundary: APIClient + RemoteRepository
+- Persistence boundary: LocalRepository
+- Logging system: OSLog
+- Harness profile: intermediate
+
+## Required Reads
+1. Read `Docs/AI_RULES.md`.
+2. Read `Docs/AI_WORKFLOWS.md`.
+3. Read the relevant files under `Docs/AI_SKILLS/`.
+4. When the task matches a workflow below, read the corresponding file under `.ai-harness/workflows/`.
+
+## Enabled Skills
+- `concurrency-rules`
+- `ios-architecture`
+- `location-rules`
+- `swiftui-rules`
+- `testing-rules`
+
+## Workflow Entry Points
+- `add-feature`: Use for new features or visible behavior additions. Read `.ai-harness/workflows/add-feature.md`.
+- `fix-bug`: Use for bug fixes and regression repairs. Read `.ai-harness/workflows/fix-bug.md`.
+- `refactor`: Use for structure-only changes that preserve behavior. Read `.ai-harness/workflows/refactor.md`.
+- `build`: Use for build or test verification work. Read `.ai-harness/workflows/build.md`.
+
+## Build and Test Commands
+- Build: xcodebuild -scheme RunTrack build
+- Test: xcodebuild test -scheme RunTrack
+
+## Completion Expectations
+- Summarize files changed.
+- Summarize behavior impact.
+- Mention tests run or explain why tests were not run.
+- Call out risks or limitations briefly.
+
 
 <!-- AI_RULES.md -->
 
@@ -187,18 +240,22 @@ Do not optimize prematurely.
 - Call out state transition risks when async or permission logic is involved.
 
 ## Required Delivery Format for Agent Responses
-Before implementation, provide:
+For straightforward tasks:
+1. Inspect relevant code and constraints first.
+2. Implement directly when the request is clear.
+3. Finish with:
+   - files changed
+   - behavior summary
+   - tests added/updated or not run
+   - risks / limitations
+   - any rule deviations, if any
+
+For ambiguous or high-risk tasks:
 1. Applicable rules summary
 2. Planned file changes
 3. Short implementation strategy
 4. Test plan
-
-After implementation, provide:
-1. Files changed
-2. Behavior summary
-3. Tests added/updated
-4. Risks / limitations
-5. Any rule deviations, if any
+5. Then implement and finish with the same post-implementation summary.
 
 
 <!-- AI_WORKFLOWS.md -->
@@ -206,6 +263,8 @@ After implementation, provide:
 # AI Workflows for RunTrack
 
 This document defines standard execution workflows for AI agents.
+
+Scaffolded workflow entry files may also be generated under `.ai-harness/workflows/`. When present, treat those files as the task-specific execution entrypoints derived from this document.
 
 ## Workflow: Add Feature
 1. Read `Docs/AI_RULES.md` and relevant `Docs/AI_SKILLS/*` files.
@@ -275,18 +334,19 @@ This document defines standard execution workflows for AI agents.
 
 You are working on the RunTrack iOS codebase.
 
-Before doing any implementation:
+If `AGENTS.md` exists, treat it as the canonical Codex entrypoint.
+
+Before doing implementation:
 1. Read `Docs/AI_RULES.md`
 2. Read `Docs/AI_WORKFLOWS.md`
 3. Read the relevant files under `Docs/AI_SKILLS/` for this task
 
-Then:
-1. Summarize the applicable rules
-2. Propose a minimal implementation strategy
-3. List files to modify
-4. Provide a test plan
-5. Implement
-6. Perform a self-review against the rules
+Default behavior:
+1. Inspect the relevant code first
+2. Implement directly when the request is straightforward
+3. Provide a brief plan first only when the task is ambiguous, risky, or explicitly asks for planning
+4. Keep the diff minimal and reviewable
+5. Perform a self-review against the rules
 
 Constraints:
 - Follow the established architecture: MVVM with Repository pattern
@@ -299,13 +359,17 @@ Constraints:
 - Keep the diff minimal and reviewable
 
 Output format:
+1. Files changed
+2. Behavior summary
+3. Tests added/updated or not run
+4. Self-review
+5. Risks / limitations
+
+For ambiguous or high-risk tasks, include a short plan before implementation:
 1. Applicable rules
 2. Strategy
 3. Files to change
 4. Test plan
-5. Implementation
-6. Self-review
-7. Risks / limitations
 
 
 <!-- AI_SKILLS/concurrency-rules.md -->
@@ -382,3 +446,180 @@ Apply this skill whenever logic changes are introduced.
 - Mock or fake external dependencies.
 - Test state transitions for view models/presenters.
 - Add regression tests for bug fixes where practical.
+
+
+<!-- workflows/add-feature.md -->
+
+# Workflow: Add Feature
+
+Use this workflow when adding a new product capability or expanding an existing user flow.
+
+## Required Reads
+1. `AGENTS.md`
+2. `Docs/AI_RULES.md`
+3. `Docs/AI_WORKFLOWS.md`
+4. Relevant files under `Docs/AI_SKILLS/`
+
+## Project-Specific Reminders
+- Architecture: MVVM with Repository pattern
+- UI framework: SwiftUI
+- Networking boundary: APIClient + RemoteRepository
+- Persistence boundary: LocalRepository
+- Enabled skills:
+- `concurrency-rules`
+- `ios-architecture`
+- `location-rules`
+- `swiftui-rules`
+- `testing-rules`
+
+## Execution Steps
+1. Inspect the current implementation patterns for the affected area.
+2. Define the minimum user-visible behavior change.
+3. Identify the layer order for the change:
+   - model/domain
+   - repository/service
+   - presentation/viewmodel
+   - view
+4. Implement the smallest reviewable diff that satisfies the behavior.
+5. Add or update tests for non-trivial logic.
+6. Run the relevant verification commands.
+
+## Verification Checklist
+- new behavior is reachable through the intended UI flow
+- no unrelated refactor slipped in
+- actor/state transition risks were checked for async work
+- build and tests were run or explicitly skipped with reason
+
+## Final Response
+- files changed
+- behavior summary
+- tests run
+- risks or limitations
+
+
+<!-- workflows/fix-bug.md -->
+
+# Workflow: Fix Bug
+
+Use this workflow when the task is to correct broken behavior, crashes, incorrect state transitions, or regressions.
+
+## Required Reads
+1. `AGENTS.md`
+2. `Docs/AI_RULES.md`
+3. `Docs/AI_WORKFLOWS.md`
+4. Relevant files under `Docs/AI_SKILLS/`
+
+## Project-Specific Reminders
+- Architecture: MVVM with Repository pattern
+- UI framework: SwiftUI
+- Networking boundary: APIClient + RemoteRepository
+- Persistence boundary: LocalRepository
+- Enabled skills:
+- `concurrency-rules`
+- `ios-architecture`
+- `location-rules`
+- `swiftui-rules`
+- `testing-rules`
+
+## Execution Steps
+1. State the bug in one sentence.
+2. Identify the failing layer or boundary first.
+3. Confirm the root-cause hypothesis before patching.
+4. Implement the root-cause fix, not a symptom-only workaround.
+5. Add a regression test when practical.
+6. Run the relevant verification commands.
+
+## Verification Checklist
+- bug no longer reproduces in the intended flow
+- no unrelated behavior changed
+- async/state side effects were checked
+- regression protection was added when practical
+
+## Final Response
+- files changed
+- root cause and fix summary
+- tests run
+- remaining risks or limitations
+
+
+<!-- workflows/refactor.md -->
+
+# Workflow: Refactor
+
+Use this workflow when the request is to improve structure, readability, layering, or maintainability without changing intended behavior.
+
+## Required Reads
+1. `AGENTS.md`
+2. `Docs/AI_RULES.md`
+3. `Docs/AI_WORKFLOWS.md`
+4. Relevant files under `Docs/AI_SKILLS/`
+
+## Project-Specific Reminders
+- Architecture: MVVM with Repository pattern
+- Enabled skills:
+- `concurrency-rules`
+- `ios-architecture`
+- `location-rules`
+- `swiftui-rules`
+- `testing-rules`
+
+## Execution Steps
+1. State why the refactor is needed.
+2. Confirm that behavior should stay unchanged unless the user asked otherwise.
+3. Keep the scope narrow and local.
+4. Preserve public interfaces unless the task requires changes.
+5. Update tests only as needed to protect existing behavior.
+6. Run the relevant verification commands.
+
+## Verification Checklist
+- public behavior stayed unchanged unless explicitly requested
+- file/type movement improved clarity rather than adding abstraction
+- tests still cover the important behavior
+- diff stayed narrow
+
+## Final Response
+- files changed
+- before/after structure summary
+- tests run
+- remaining risks or follow-up items
+
+
+<!-- workflows/build.md -->
+
+# Workflow: Build
+
+Use this workflow when the task is to verify that the project still builds or tests after a change.
+
+## Required Reads
+1. `AGENTS.md`
+2. `Docs/AI_RULES.md`
+3. `Docs/AI_WORKFLOWS.md`
+
+## Project-Specific Commands
+Primary build command:
+```bash
+xcodebuild -scheme RunTrack build
+```
+
+Primary test command:
+```bash
+xcodebuild test -scheme RunTrack
+```
+
+## Execution Steps
+1. Prefer the configured commands above when they are present.
+2. If no explicit command is configured, inspect the repository and determine the correct build/test entrypoint before running anything.
+3. Record which command actually ran.
+4. Capture the pass/fail result and the first actionable failure if the build breaks.
+
+## Verification Checklist
+- build command is recorded exactly
+- test command is recorded exactly when run
+- failures are summarized by root error, not raw log spam
+- if nothing ran, the reason is explicit
+
+## Final Response
+- commands run
+- result
+- first actionable failure, if any
+- suggested next step if verification failed

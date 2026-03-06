@@ -22,6 +22,7 @@ Canonical GitHub repository:
 The harness generates project-facing documents and state files like this:
 
 ```text
+AGENTS.md
 Docs/
   AI_RULES.md
   AI_WORKFLOWS.md
@@ -33,6 +34,11 @@ Docs/
   selected_profile.yaml
   selected_skills.txt
   rendered_context.md
+  workflows/
+    add-feature.md
+    fix-bug.md
+    refactor.md
+    build.md
 ```
 
 `Docs/` and `.ai-harness/` are first-class harness assets. Track them in version control by default.
@@ -79,6 +85,8 @@ cp config/project.example.yaml config/project.yaml
 
 Set the project-specific values in `config/project.yaml`.
 
+If you already know the preferred verification commands for the project, set optional `build_command` and `test_command` too.
+
 ### 3. Run the initializer interactively
 
 ```bash
@@ -99,6 +107,8 @@ Set the project-specific values in `config/project.yaml`.
 ```bash
 ./harness render-context
 ./harness upgrade --to advanced
+./harness workflow list
+./harness workflow scaffold permissions review
 ```
 
 `upgrade` requires an existing `.ai-harness/state.json`, so run `init` first.
@@ -162,7 +172,7 @@ test -f config/project.yaml || cp config/project.example.yaml config/project.yam
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
 ```
 
-If the project already includes location, HealthKit, or logging-heavy code paths, add those skills explicitly during initialization.
+If the project already includes location, HealthKit, or logging-heavy code paths, add those skills explicitly during initialization. Optional workflow scaffolds such as `permissions`, `networking`, or `review` can be added later with `./harness workflow scaffold ...`.
 
 ### 3. Start With the Harness and Evolve It Over Time
 
@@ -190,6 +200,8 @@ Example:
 ```
 
 In this model, `.ai-harness/state.json` is the continuity anchor for future rerenders and upgrades.
+
+Optional workflows stay opt-in. Re-running `init` resets the workflow set back to the default core workflows.
 
 ## Managed Files
 
@@ -300,6 +312,7 @@ Other files in `.ai-harness/`:
 - `selected_profile.yaml`
 - `selected_skills.txt`
 - `rendered_context.md`
+- `workflows/*.md`
 
 Paths inside the state file are stored relative to the repository when possible, so the harness survives being moved to another machine.
 
@@ -318,6 +331,9 @@ From a repository where the harness has already been installed:
 ./harness list-skills
 ./harness list-profiles
 ./harness init --config config/project.yaml
+./harness workflow list
+./harness workflow print add-feature
+./harness workflow scaffold permissions review
 ./harness render-context
 ./harness upgrade --to intermediate
 make init CONFIG=config/project.yaml
