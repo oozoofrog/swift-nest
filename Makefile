@@ -1,5 +1,6 @@
 PYTHON ?= python3
 CONFIG ?= my-project.yaml
+XCODE_APP ?= /Volumes/eyedisk/Applications/Xcode.app
 
 list-skills:
 	$(PYTHON) scripts/harness.py list-skills
@@ -12,3 +13,6 @@ init:
 
 context:
 	$(PYTHON) scripts/harness.py render-context
+
+extract-xcode-chat:
+	$(PYTHON) scripts/extract_xcode_chat_resources.py --xcode-app "$(XCODE_APP)"

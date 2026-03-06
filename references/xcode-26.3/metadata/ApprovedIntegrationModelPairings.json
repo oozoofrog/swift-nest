@@ -1,0 +1,34 @@
+{
+  "pairings": {
+    "com.apple.openai.chatgpt": [
+      {
+        "modelName": "gpt-4.1-mini",
+        "role": "executor"
+      }
+    ],
+    "gpt-4.1": [
+      {
+        "modelName": "gpt-4.1-mini",
+        "role": "executor"
+      }
+    ],
+    "gpt-4.1-mini": [
+      {
+        "modelName": "gpt-4.1-mini",
+        "role": "executor"
+      }
+    ],
+    "gpt-5": [
+      {
+        "modelName": "gpt-4.1-mini",
+        "role": "executor"
+      }
+    ],
+    "o3": [
+      {
+        "modelName": "gpt-4.1-mini",
+        "role": "executor"
+      }
+    ]
+  }
+}

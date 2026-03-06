@@ -1,0 +1,163 @@
+{
+  "documentation_count": 20,
+  "documentation_files": [
+    "AppIntents-Updates",
+    "AppKit-Implementing-Liquid-Glass-Design",
+    "Foundation-AttributedString-Updates",
+    "FoundationModels-Using-on-device-LLM-in-your-app",
+    "Implementing-Assistive-Access-in-iOS",
+    "Implementing-Visual-Intelligence-in-iOS",
+    "MapKit-GeoToolbox-PlaceDescriptors",
+    "StoreKit-Updates",
+    "Swift-Charts-3D-Visualization",
+    "Swift-Concurrency-Updates",
+    "Swift-InlineArray-Span",
+    "SwiftData-Class-Inheritance",
+    "SwiftUI-AlarmKit-Integration",
+    "SwiftUI-Implementing-Liquid-Glass-Design",
+    "SwiftUI-New-Toolbar-Features",
+    "SwiftUI-Styled-Text-Editing",
+    "SwiftUI-WebKit-Integration",
+    "UIKit-Implementing-Liquid-Glass-Design",
+    "WidgetKit-Implementing-Liquid-Glass-Design",
+    "Widgets-for-visionOS"
+  ],
+  "documentation_start_here": [
+    "FoundationModels-Using-on-device-LLM-in-your-app.md",
+    "Swift-Concurrency-Updates.md",
+    "SwiftUI-WebKit-Integration.md",
+    "Implementing-Visual-Intelligence-in-iOS.md"
+  ],
+  "metadata_count": 3,
+  "metadata_files": [
+    "AgentVersions",
+    "ApprovedIntegrationModelPairings",
+    "version"
+  ],
+  "output_root": "/Volumes/eyedisk/develop/oozoofrog/ios-ai-harness-starter/references/xcode-26.3",
+  "prompt_categories": {
+    "context-and-grounding": {
+      "count": 14,
+      "description": "Context-packing templates that explain what Xcode injects alongside the user query: files, selections, issues, snippets, and other grounding inputs.",
+      "files": [
+        "AdditionalFiles",
+        "AgentAdditionalContext",
+        "ContextItems",
+        "CurrentFile",
+        "CurrentFileAbbreviated",
+        "CurrentFileName",
+        "CurrentSelection",
+        "Interfaces",
+        "Issues",
+        "NewKnowledge",
+        "NoSelection",
+        "Query",
+        "SearchResults",
+        "Snippets"
+      ],
+      "start_here": [
+        "Query",
+        "CurrentFile",
+        "CurrentSelection",
+        "ContextItems",
+        "AgentAdditionalContext"
+      ]
+    },
+    "generation-tools": {
+      "count": 7,
+      "description": "Task-shaped templates for explanation, documentation, preview generation, and playground generation that can inspire harness workflows.",
+      "files": [
+        "CodingToolTemplateDocument",
+        "CodingToolTemplateExplain",
+        "CodingToolTemplateGeneratePlayground",
+        "CodingToolTemplateGeneratePreview",
+        "GenerateDocumentation",
+        "GeneratePlayground",
+        "GeneratePreview"
+      ],
+      "start_here": [
+        "CodingToolTemplateExplain",
+        "CodingToolTemplateDocument",
+        "GenerateDocumentation",
+        "GeneratePreview"
+      ]
+    },
+    "guidelines-and-retrieval": {
+      "count": 7,
+      "description": "Guideline and retrieval support prompts that reveal how Xcode constrains answers, expands searches, and injects retrieval hints.",
+      "files": [
+        "ChatTitleResolver",
+        "InQueryDetailedGuidelines",
+        "InQueryShortGuidelines",
+        "InstructionEmbeddingsQueryExpansion",
+        "LocalInfillEmbeddingsQueryExpansion",
+        "ToolAssistedInQueryDetailedGuidelines",
+        "ToolAssistedInQueryShortGuidelines"
+      ],
+      "start_here": [
+        "InQueryDetailedGuidelines",
+        "ToolAssistedInQueryDetailedGuidelines",
+        "InstructionEmbeddingsQueryExpansion",
+        "LocalInfillEmbeddingsQueryExpansion"
+      ]
+    },
+    "integration-and-editing": {
+      "count": 7,
+      "description": "Edit-oriented prompts that show how Xcode structures full-file rewrites, fast-apply edits, and code integration flows.",
+      "files": [
+        "FastApplyIntegratorSystemPrompt",
+        "FastApplyIntegratorUserPrompt",
+        "IntegratorSystemPrompt",
+        "IntegratorUserPrompt",
+        "NewCodeIntegratorSystemPrompt",
+        "NewCodeIntegratorUserPrompt",
+        "OriginalFile"
+      ],
+      "start_here": [
+        "IntegratorSystemPrompt",
+        "IntegratorUserPrompt",
+        "FastApplyIntegratorSystemPrompt",
+        "NewCodeIntegratorSystemPrompt"
+      ]
+    },
+    "planning-and-variants": {
+      "count": 5,
+      "description": "Planner and variant prompts that show orchestration strategies, model-specific prompt variants, and experimental branches.",
+      "files": [
+        "PlannerExecutorStyleNoClassify",
+        "PlannerExecutorStylePlannerSystemPrompt-gpt_5",
+        "PlannerExecutorStylePlannerSystemPrompt",
+        "VariantASystemPrompt",
+        "VariantBSystemPrompt"
+      ],
+      "start_here": [
+        "PlannerExecutorStylePlannerSystemPrompt",
+        "PlannerExecutorStylePlannerSystemPrompt-gpt_5",
+        "VariantASystemPrompt",
+        "VariantBSystemPrompt"
+      ]
+    },
+    "system-core": {
+      "count": 6,
+      "description": "Top-level assistant personas and tool-aware system prompts that shape the harness voice and default coding rules.",
+      "files": [
+        "AgentSystemPromptAddition",
+        "BasicSystemPrompt",
+        "ReasoningSystemPrompt",
+        "TextEditorToolSystemPrompt",
+        "ToolAssistedBasicSystemPrompt",
+        "ToolAssistedReasoningSystemPrompt"
+      ],
+      "start_here": [
+        "BasicSystemPrompt",
+        "ReasoningSystemPrompt",
+        "ToolAssistedBasicSystemPrompt",
+        "AgentSystemPromptAddition"
+      ]
+    }
+  },
+  "prompt_count": 46,
+  "resource_root": "/Volumes/eyedisk/Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/Versions/A/Resources",
+  "source_app": "/Volumes/eyedisk/Applications/Xcode.app",
+  "xcode_version": "26.3"
+}
