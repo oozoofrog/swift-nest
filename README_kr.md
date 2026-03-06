@@ -37,59 +37,98 @@ Docs/
 
 `Docs/` 와 `.ai-harness/` 는 하네스의 핵심 자산이므로 기본적으로 버전 관리에 포함하는 것을 권장합니다.
 
+## GitHub 링크만 전달된 에이전트 설치 흐름
+
+에이전트가 이 GitHub 링크만 받은 경우, 기대하는 설치 순서는 아래와 같습니다.
+
+1. 이 스타터를 임시 디렉터리에 clone 또는 download 합니다.
+2. 스타터 체크아웃에서 대상 앱 저장소로 설치 스크립트를 실행합니다.
+3. 대상 저장소 안에서 `config/project.yaml` 을 만듭니다.
+4. 대상 저장소에서 `init` 를 실행해서 생성 파일이 스타터가 아니라 앱 저장소 안에 생기게 합니다.
+5. 대상 저장소에서 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
+
+예시:
+
+```bash
+git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
+python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target /path/to/current-ios-repo
+
+cd /path/to/current-ios-repo
+test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
+python3 scripts/harness.py init \
+  --config config/project.yaml \
+  --profile intermediate \
+  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
+```
+
+다른 저장소에 설치하는 것이 목적이라면, 스타터 체크아웃 안에서 `scripts/harness.py init` 를 실행하면 안 됩니다.
+
 ## 빠른 시작
+
+이 섹션은 현재 저장소에 이미 하네스 관리 파일이 들어 있다고 가정합니다.
 
 ### 1. 예제 설정 파일 복사
 
 ```bash
-cp config/project.example.yaml my-project.yaml
+cp config/project.example.yaml config/project.yaml
 ```
 
 ### 2. 값 수정
 
-`my-project.yaml` 안의 값을 현재 프로젝트에 맞게 수정합니다.
+`config/project.yaml` 안의 값을 현재 프로젝트에 맞게 수정합니다.
 
 ### 3. 인터랙티브 초기화 실행
 
 ```bash
-python3 scripts/harness.py init --config my-project.yaml
+python3 scripts/harness.py init --config config/project.yaml
 ```
 
 ### 4. 비대화식 초기화 실행
 
 ```bash
 python3 scripts/harness.py init \
-  --config my-project.yaml \
+  --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,testing-rules,location-rules
 ```
 
-### 5. 나중에 더 엄격한 프로필로 업그레이드
+### 5. 이후 rerender 또는 upgrade
 
 ```bash
+python3 scripts/harness.py render-context
 python3 scripts/harness.py upgrade --to advanced
 ```
+
+`upgrade` 는 기존 `.ai-harness/state.json` 이 있어야 하므로 먼저 `init` 을 실행해야 합니다.
 
 ## 사용 시나리오
 
 ### 1. 빈 저장소에서 하네스를 처음부터 구성하는 경우
 
-아직 앱 구조가 거의 없거나, 코드보다 먼저 하네스 기준을 잡고 싶은 경우에 적합합니다.
+저장소가 비어 있거나, 앱 구조가 완성되기 전에 먼저 하네스 기준을 세우고 싶을 때 적합합니다.
 
 권장 흐름:
 
-1. 이 스타터 저장소를 기반으로 시작하거나, 필요한 하네스 파일을 새 저장소에 복사합니다.
-2. `config/project.example.yaml` 을 프로젝트용 설정 파일로 복사합니다.
-3. 구현이 아직 단순하더라도 의도하는 앱 문맥을 먼저 채웁니다.
-4. 가벼운 프로필과 최소 스킬 세트부터 시작합니다.
-5. `init` 를 실행하고 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
+1. 새 저장소를 만들거나 빈 저장소 루트로 이동합니다.
+2. 이 스타터를 임시 디렉터리에 clone 합니다.
+3. 새 저장소에 하네스 관리 파일을 설치합니다.
+4. `config/project.yaml` 을 만들고 의도하는 앱 문맥을 채웁니다.
+5. 가벼운 프로필과 작은 스킬 세트부터 시작합니다.
+6. `init` 를 실행하고 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
 
 예시:
 
 ```bash
-cp config/project.example.yaml my-project.yaml
+mkdir MyNewApp
+cd MyNewApp
+git init
+
+git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
+python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target "$PWD"
+
+cp config/project.example.yaml config/project.yaml
 python3 scripts/harness.py init \
-  --config my-project.yaml \
+  --config config/project.yaml \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules
 ```
@@ -101,7 +140,7 @@ python3 scripts/harness.py init \
 권장 흐름:
 
 1. 현재 프로젝트의 아키텍처, 프레임워크 사용, 권한 영역, 테스트 스타일을 먼저 확인합니다.
-2. 하네스 파일을 기존 저장소 루트에 복사합니다.
+2. 저장소 루트에 하네스 관리 파일을 설치합니다.
 3. 실제 프로젝트 상태를 반영해서 `config/project.yaml` 을 작성합니다.
 4. 현재 코드베이스에 맞는 프로필과 스킬을 고릅니다.
 5. `init` 를 실행한 뒤, 생성된 문서가 현재 프로젝트 관습과 맞는지 검토하고 커밋합니다.
@@ -109,7 +148,12 @@ python3 scripts/harness.py init \
 예시:
 
 ```bash
-cp config/project.example.yaml config/project.yaml
+cd /path/to/existing-ios-repo
+
+git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
+python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target "$PWD"
+
+test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
 python3 scripts/harness.py init \
   --config config/project.yaml \
   --profile intermediate \
@@ -124,7 +168,7 @@ python3 scripts/harness.py init \
 
 권장 흐름:
 
-1. `basic` 또는 `intermediate` 와 최소 스킬 세트로 시작합니다.
+1. 하네스를 한 번 설치한 뒤 `basic` 또는 `intermediate` 로 초기화합니다.
 2. 일정 기간 팀이 실제로 하네스를 사용하게 둡니다.
 3. 새 도메인이 코드베이스에 생기면 스킬을 추가합니다.
 4. 리뷰 기준을 강화할 필요가 생기면 프로필을 업그레이드합니다.
@@ -133,17 +177,32 @@ python3 scripts/harness.py init \
 예시:
 
 ```bash
-python3 scripts/harness.py upgrade --to advanced
-```
-
-```bash
 python3 scripts/harness.py init \
-  --config my-project.yaml \
-  --profile advanced \
-  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules,logging-rules
+  --config config/project.yaml \
+  --profile basic \
+  --skills ios-architecture,swiftui-rules,testing-rules
+
+python3 scripts/harness.py upgrade --to intermediate
+python3 scripts/harness.py upgrade --to advanced
+python3 scripts/harness.py render-context
 ```
 
-이 방식에서는 `.ai-harness/state.json` 이 이후 rerender 와 profile upgrade 를 이어주는 기준점 역할을 합니다.
+이 방식에서는 `.ai-harness/state.json` 이 이후 rerender 와 upgrade 를 이어주는 기준점 역할을 합니다.
+
+## 관리 대상 파일
+
+설치 스크립트는 아래 하네스 관리 파일만 복사합니다.
+
+```text
+Makefile
+config/project.example.yaml
+profiles/
+scripts/harness.py
+scripts/install_harness.py
+templates/
+```
+
+대상 저장소에 같은 경로의 파일이 이미 있고 내용이 다르면, `--force` 없이는 설치가 중단됩니다.
 
 ## 프로필
 
@@ -194,58 +253,9 @@ python3 scripts/harness.py init \
 - `testing-rules`
 - `logging-rules`
 
-## 기존 iOS 저장소에 설치하기
-
-이 스타터는 독립 템플릿 저장소로도 쓸 수 있고, 이미 존재하는 iOS 저장소에 하네스 파일을 주입하는 소스로도 사용할 수 있습니다.
-
-에이전트가 실제 앱 저장소에 하네스를 설치할 때의 기본 절차는 아래와 같습니다.
-
-1. 이 README를 먼저 읽습니다.
-2. 필요한 하네스 파일을 대상 저장소 루트로 복사합니다.
-3. 해당 앱에 맞는 `config/project.yaml` 을 만들거나 수정합니다.
-4. 적절한 프로필과 스킬을 선택합니다.
-5. 대상 저장소 루트에서 초기화 스크립트를 실행합니다.
-6. 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
-
-대상 저장소에 최소한 복사해야 하는 파일:
-
-```text
-scripts/harness.py
-templates/
-profiles/
-config/project.example.yaml
-Makefile
-```
-
-권장 확인 사항:
-
-- `.gitignore` 가 `.ai-harness/` 를 무시하지 않는지 확인
-- 기존 `Docs/` 디렉터리가 있으면 덮어쓰기 전에 충돌 검토
-- 프로필과 스킬은 명시적으로 선택
-
-예시 설치 흐름:
-
-```bash
-git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-rsync -av \
-  /tmp/ios-ai-harness-starter/scripts \
-  /tmp/ios-ai-harness-starter/templates \
-  /tmp/ios-ai-harness-starter/profiles \
-  /tmp/ios-ai-harness-starter/config \
-  /tmp/ios-ai-harness-starter/Makefile \
-  /path/to/your-ios-repo/
-
-cd /path/to/your-ios-repo
-cp config/project.example.yaml config/project.yaml
-python3 scripts/harness.py init \
-  --config config/project.yaml \
-  --profile intermediate \
-  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
-```
-
 ## Agent Bootstrap Prompt
 
-아래 프롬프트를 GitHub 링크와 함께 에이전트에게 전달하면, 현재 iOS 저장소에 하네스를 설치하는 시작점으로 사용할 수 있습니다.
+아래 프롬프트를 GitHub 링크와 함께 에이전트에게 전달할 수 있습니다.
 
 ```text
 Use this repository as the harness starter:
@@ -254,24 +264,24 @@ https://github.com/oozoofrog/ios-ai-harness-starter
 Your job is to install this AI harness into the current iOS repository.
 
 Follow this process:
-1. Read the README from the starter repository first.
-2. Copy the required harness files into the current repository:
-   - scripts/harness.py
-   - templates/
-   - profiles/
-   - config/project.example.yaml
-   - Makefile
-3. Create or update config/project.yaml for this app based on the actual project.
-4. Choose an appropriate profile and skills for this codebase.
-5. Run the harness initializer from the current repository root.
-6. Keep Docs/ and .ai-harness/ checked into the repository.
-7. Summarize the selected profile, selected skills, generated files, and any assumptions.
+1. Clone or download the starter repository into a temporary directory.
+2. Read the README from the starter repository first.
+3. From the starter checkout, run:
+   python3 scripts/install_harness.py --target <CURRENT_REPOSITORY_ROOT>
+4. In the current repository, create config/project.yaml from config/project.example.yaml if it does not exist yet.
+5. Edit config/project.yaml so it reflects the actual project state.
+6. Choose an appropriate profile and skills for this codebase.
+7. From the current repository root, run python3 scripts/harness.py init --config config/project.yaml with explicit profile and skills.
+8. Keep Docs/ and .ai-harness/ checked into the repository.
+9. Summarize the selected profile, selected skills, generated files, and any assumptions.
 
 Constraints:
+- Do not run scripts/harness.py from the starter checkout when the goal is to modify the current repository.
 - Do not break the existing Xcode project structure.
 - Do not ignore .ai-harness/.
 - Prefer minimal, reviewable changes.
 - If Docs/ already exists, merge carefully instead of blindly overwriting unrelated files.
+- If .ai-harness/state.json already exists, treat it as the current harness state before rerendering or upgrading.
 ```
 
 이 프롬프트의 목적은 스타터 저장소를 하네스 파일의 소스로 활용하면서, 실제 하네스는 작업 대상 앱 저장소 안에 설치하도록 만드는 것입니다.
@@ -290,12 +300,24 @@ Constraints:
 
 ## 명령 모음
 
+스타터 체크아웃 또는 이미 하네스 관리 파일이 들어 있는 저장소에서:
+
+```bash
+python3 scripts/install_harness.py --target /path/to/app-repo
+make install-harness TARGET=/path/to/app-repo
+```
+
+하네스가 이미 설치된 저장소에서:
+
 ```bash
 python3 scripts/harness.py list-skills
 python3 scripts/harness.py list-profiles
-python3 scripts/harness.py init --config my-project.yaml
+python3 scripts/harness.py init --config config/project.yaml
 python3 scripts/harness.py render-context
 python3 scripts/harness.py upgrade --to intermediate
+make init CONFIG=config/project.yaml
+make context
+make upgrade PROFILE=advanced
 ```
 
 ## 자신의 사본 공개하기

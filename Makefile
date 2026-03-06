@@ -1,5 +1,11 @@
 PYTHON ?= python3
-CONFIG ?= my-project.yaml
+CONFIG ?= config/project.yaml
+TARGET ?=
+PROFILE ?= intermediate
+
+install-harness:
+	@test -n "$(TARGET)" || (echo "TARGET is required"; exit 1)
+	$(PYTHON) scripts/install_harness.py --target "$(TARGET)"
 
 list-skills:
 	$(PYTHON) scripts/harness.py list-skills
@@ -12,3 +18,6 @@ init:
 
 context:
 	$(PYTHON) scripts/harness.py render-context
+
+upgrade:
+	$(PYTHON) scripts/harness.py upgrade --to $(PROFILE)
