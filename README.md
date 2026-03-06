@@ -37,6 +37,8 @@ Docs/
   rendered_context.md
 ```
 
+`Docs/` 와 `.ai-harness/` 는 이 스타터의 활성 하네스 상태이므로 버전 관리에 포함하는 것을 기본값으로 권장합니다.
+
 ## 빠른 시작
 
 ### 1) 설정 파일 복사
@@ -153,6 +155,7 @@ python3 scripts/harness.py upgrade --to intermediate
 
 `.ai-harness/state.json` 에 현재 선택 상태가 저장됩니다.
 이 파일을 기준으로 이후 업그레이드/재렌더링이 수행됩니다.
+저장소 안의 경로를 가리킬 때는 상대 경로로 저장되어, 다른 머신으로 옮겨도 상태 파일이 깨지지 않게 유지됩니다.
 
 ## 라이선스
 

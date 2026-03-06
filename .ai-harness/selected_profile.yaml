@@ -1,0 +1,13 @@
+name: intermediate
+description: Balanced setup for product development.
+default_skills:
+  - ios-architecture
+  - swiftui-rules
+  - concurrency-rules
+  - networking-rules
+  - testing-rules
+flags:
+  strict_self_review: true
+  require_regression_tests: true
+  include_performance_guidance: true
+  include_security_privacy_emphasis: true

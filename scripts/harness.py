@@ -81,6 +81,19 @@ def save_state(data: dict[str, Any]) -> None:
     STATE_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def serialize_state_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(ROOT))
+    except ValueError:
+        return str(resolved)
+
+
+def resolve_state_path(path_str: str) -> Path:
+    path = Path(path_str)
+    return path if path.is_absolute() else ROOT / path
+
+
 def load_state() -> dict[str, Any]:
     if not STATE_FILE.exists():
         raise SystemExit("No .ai-harness/state.json found. Run init first.")
@@ -241,8 +254,8 @@ def init_cmd(args: argparse.Namespace) -> None:
     state = {
         "profile": profile_name,
         "skills": skills,
-        "config_path": str(Path(args.config).resolve()),
-        "context_path": str(context_path.resolve()),
+        "config_path": serialize_state_path(Path(args.config)),
+        "context_path": serialize_state_path(context_path),
     }
     save_state(state)
     print(f"Initialized harness with profile '{profile_name}' and skills: {', '.join(skills)}")
@@ -251,7 +264,7 @@ def init_cmd(args: argparse.Namespace) -> None:
 
 def upgrade_cmd(args: argparse.Namespace) -> None:
     state = load_state()
-    config_path = Path(state["config_path"])
+    config_path = resolve_state_path(state["config_path"])
     if not config_path.exists():
         raise SystemExit(f"Config path not found: {config_path}")
     target = args.to
@@ -262,7 +275,7 @@ def upgrade_cmd(args: argparse.Namespace) -> None:
     context = normalize_context(config, target)
     write_docs(ROOT, context, skills, target)
     context_path = render_context_bundle(ROOT, target, skills)
-    state.update({"profile": target, "skills": skills, "context_path": str(context_path.resolve())})
+    state.update({"profile": target, "skills": skills, "context_path": serialize_state_path(context_path)})
     save_state(state)
     (STATE_DIR / "selected_profile.yaml").write_text((PROFILES / f"{target}.yaml").read_text(encoding="utf-8"), encoding="utf-8")
     (STATE_DIR / "selected_skills.txt").write_text("\n".join(skills) + "\n", encoding="utf-8")
