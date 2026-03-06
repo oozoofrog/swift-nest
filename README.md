@@ -37,12 +37,14 @@ Docs/
 
 `Docs/` and `.ai-harness/` are first-class harness assets. Track them in version control by default.
 
+The `./harness` shell entrypoint builds a local macOS Swift binary on first use, so no Python runtime is required.
+
 ## Link-Only Agent Setup
 
 If an agent only receives this GitHub link, the expected installation flow is:
 
 1. Clone or download this starter into a temporary directory.
-2. Run the installer from the starter checkout into the target app repository.
+2. Run the shell entrypoint from the starter checkout into the target app repository.
 3. In the target repository, create `config/project.yaml`.
 4. Run `init` from the target repository so generated files land in the app repository, not in the starter checkout.
 5. Commit the generated `Docs/` and `.ai-harness/` files in the target repository.
@@ -51,21 +53,21 @@ Example:
 
 ```bash
 git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target /path/to/current-ios-repo
+/tmp/ios-ai-harness-starter/harness install --target /path/to/current-ios-repo
 
 cd /path/to/current-ios-repo
 test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
 ```
 
-Do not run `scripts/harness.py init` inside the starter checkout when the goal is to install the harness into another repository.
+The first invocation builds a local Swift binary under `tools/harness-cli/.build/`. Do not run `./harness init` inside the starter checkout when the goal is to install the harness into another repository.
 
 ## Quick Start
 
-This section assumes the current repository already contains the harness-managed files.
+This section assumes the current repository already contains the harness-managed files and that the macOS Swift toolchain is available.
 
 ### 1. Copy the example config
 
@@ -80,13 +82,13 @@ Set the project-specific values in `config/project.yaml`.
 ### 3. Run the initializer interactively
 
 ```bash
-python3 scripts/harness.py init --config config/project.yaml
+./harness init --config config/project.yaml
 ```
 
 ### 4. Run the initializer non-interactively
 
 ```bash
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,testing-rules,location-rules
@@ -95,8 +97,8 @@ python3 scripts/harness.py init \
 ### 5. Rerender or upgrade later
 
 ```bash
-python3 scripts/harness.py render-context
-python3 scripts/harness.py upgrade --to advanced
+./harness render-context
+./harness upgrade --to advanced
 ```
 
 `upgrade` requires an existing `.ai-harness/state.json`, so run `init` first.
@@ -124,10 +126,10 @@ cd MyNewApp
 git init
 
 git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target "$PWD"
+/tmp/ios-ai-harness-starter/harness install --target "$PWD"
 
 cp config/project.example.yaml config/project.yaml
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules
@@ -151,10 +153,10 @@ Example:
 cd /path/to/existing-ios-repo
 
 git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target "$PWD"
+/tmp/ios-ai-harness-starter/harness install --target "$PWD"
 
 test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
@@ -177,14 +179,14 @@ Recommended flow:
 Example:
 
 ```bash
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules
 
-python3 scripts/harness.py upgrade --to intermediate
-python3 scripts/harness.py upgrade --to advanced
-python3 scripts/harness.py render-context
+./harness upgrade --to intermediate
+./harness upgrade --to advanced
+./harness render-context
 ```
 
 In this model, `.ai-harness/state.json` is the continuity anchor for future rerenders and upgrades.
@@ -196,13 +198,16 @@ The installer copies only the harness-managed files:
 ```text
 Makefile
 config/project.example.yaml
+harness
 profiles/
-scripts/harness.py
-scripts/install_harness.py
 templates/
+tools/harness-cli/Package.swift
+tools/harness-cli/Sources/
 ```
 
 If a managed file already exists in the target repository with different contents, the installer stops unless you pass `--force`.
+
+Local build artifacts under `tools/harness-cli/.build/` are not part of the managed files and should stay ignored.
 
 ## Profiles
 
@@ -267,16 +272,16 @@ Follow this process:
 1. Clone or download the starter repository into a temporary directory.
 2. Read the README from the starter repository first.
 3. From the starter checkout, run:
-   python3 scripts/install_harness.py --target <CURRENT_REPOSITORY_ROOT>
+   ./harness install --target <CURRENT_REPOSITORY_ROOT>
 4. In the current repository, create config/project.yaml from config/project.example.yaml if it does not exist yet.
 5. Edit config/project.yaml so it reflects the actual project state.
 6. Choose an appropriate profile and skills for this codebase.
-7. From the current repository root, run python3 scripts/harness.py init --config config/project.yaml with explicit profile and skills.
+7. From the current repository root, run ./harness init --config config/project.yaml with explicit profile and skills.
 8. Keep Docs/ and .ai-harness/ checked into the repository.
 9. Summarize the selected profile, selected skills, generated files, and any assumptions.
 
 Constraints:
-- Do not run scripts/harness.py from the starter checkout when the goal is to modify the current repository.
+- Do not run ./harness init from the starter checkout when the goal is to modify the current repository.
 - Do not break the existing Xcode project structure.
 - Do not ignore .ai-harness/.
 - Prefer minimal, reviewable changes.
@@ -303,18 +308,18 @@ Paths inside the state file are stored relative to the repository when possible,
 From a starter checkout or any repository that already contains the managed harness files:
 
 ```bash
-python3 scripts/install_harness.py --target /path/to/app-repo
+./harness install --target /path/to/app-repo
 make install-harness TARGET=/path/to/app-repo
 ```
 
 From a repository where the harness has already been installed:
 
 ```bash
-python3 scripts/harness.py list-skills
-python3 scripts/harness.py list-profiles
-python3 scripts/harness.py init --config config/project.yaml
-python3 scripts/harness.py render-context
-python3 scripts/harness.py upgrade --to intermediate
+./harness list-skills
+./harness list-profiles
+./harness init --config config/project.yaml
+./harness render-context
+./harness upgrade --to intermediate
 make init CONFIG=config/project.yaml
 make context
 make upgrade PROFILE=advanced

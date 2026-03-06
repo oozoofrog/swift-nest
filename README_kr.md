@@ -37,12 +37,14 @@ Docs/
 
 `Docs/` 와 `.ai-harness/` 는 하네스의 핵심 자산이므로 기본적으로 버전 관리에 포함하는 것을 권장합니다.
 
+`./harness` shell entrypoint 는 첫 실행 시 로컬 macOS Swift 바이너리를 빌드하므로 Python runtime 이 필요하지 않습니다.
+
 ## GitHub 링크만 전달된 에이전트 설치 흐름
 
 에이전트가 이 GitHub 링크만 받은 경우, 기대하는 설치 순서는 아래와 같습니다.
 
 1. 이 스타터를 임시 디렉터리에 clone 또는 download 합니다.
-2. 스타터 체크아웃에서 대상 앱 저장소로 설치 스크립트를 실행합니다.
+2. 스타터 체크아웃에서 대상 앱 저장소로 shell entrypoint를 실행합니다.
 3. 대상 저장소 안에서 `config/project.yaml` 을 만듭니다.
 4. 대상 저장소에서 `init` 를 실행해서 생성 파일이 스타터가 아니라 앱 저장소 안에 생기게 합니다.
 5. 대상 저장소에서 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
@@ -51,21 +53,21 @@ Docs/
 
 ```bash
 git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target /path/to/current-ios-repo
+/tmp/ios-ai-harness-starter/harness install --target /path/to/current-ios-repo
 
 cd /path/to/current-ios-repo
 test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
 ```
 
-다른 저장소에 설치하는 것이 목적이라면, 스타터 체크아웃 안에서 `scripts/harness.py init` 를 실행하면 안 됩니다.
+첫 실행 시 `tools/harness-cli/.build/` 아래에 로컬 Swift 바이너리를 빌드합니다. 다른 저장소에 설치하는 것이 목적이라면, 스타터 체크아웃 안에서 `./harness init` 를 실행하면 안 됩니다.
 
 ## 빠른 시작
 
-이 섹션은 현재 저장소에 이미 하네스 관리 파일이 들어 있다고 가정합니다.
+이 섹션은 현재 저장소에 이미 하네스 관리 파일이 들어 있고, macOS Swift toolchain 을 사용할 수 있다고 가정합니다.
 
 ### 1. 예제 설정 파일 복사
 
@@ -80,13 +82,13 @@ cp config/project.example.yaml config/project.yaml
 ### 3. 인터랙티브 초기화 실행
 
 ```bash
-python3 scripts/harness.py init --config config/project.yaml
+./harness init --config config/project.yaml
 ```
 
 ### 4. 비대화식 초기화 실행
 
 ```bash
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,testing-rules,location-rules
@@ -95,8 +97,8 @@ python3 scripts/harness.py init \
 ### 5. 이후 rerender 또는 upgrade
 
 ```bash
-python3 scripts/harness.py render-context
-python3 scripts/harness.py upgrade --to advanced
+./harness render-context
+./harness upgrade --to advanced
 ```
 
 `upgrade` 는 기존 `.ai-harness/state.json` 이 있어야 하므로 먼저 `init` 을 실행해야 합니다.
@@ -124,10 +126,10 @@ cd MyNewApp
 git init
 
 git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target "$PWD"
+/tmp/ios-ai-harness-starter/harness install --target "$PWD"
 
 cp config/project.example.yaml config/project.yaml
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules
@@ -151,10 +153,10 @@ python3 scripts/harness.py init \
 cd /path/to/existing-ios-repo
 
 git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-python3 /tmp/ios-ai-harness-starter/scripts/install_harness.py --target "$PWD"
+/tmp/ios-ai-harness-starter/harness install --target "$PWD"
 
 test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
@@ -177,32 +179,35 @@ python3 scripts/harness.py init \
 예시:
 
 ```bash
-python3 scripts/harness.py init \
+./harness init \
   --config config/project.yaml \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules
 
-python3 scripts/harness.py upgrade --to intermediate
-python3 scripts/harness.py upgrade --to advanced
-python3 scripts/harness.py render-context
+./harness upgrade --to intermediate
+./harness upgrade --to advanced
+./harness render-context
 ```
 
 이 방식에서는 `.ai-harness/state.json` 이 이후 rerender 와 upgrade 를 이어주는 기준점 역할을 합니다.
 
 ## 관리 대상 파일
 
-설치 스크립트는 아래 하네스 관리 파일만 복사합니다.
+설치기는 아래 하네스 관리 파일만 복사합니다.
 
 ```text
 Makefile
 config/project.example.yaml
+harness
 profiles/
-scripts/harness.py
-scripts/install_harness.py
 templates/
+tools/harness-cli/Package.swift
+tools/harness-cli/Sources/
 ```
 
 대상 저장소에 같은 경로의 파일이 이미 있고 내용이 다르면, `--force` 없이는 설치가 중단됩니다.
+
+`tools/harness-cli/.build/` 아래의 로컬 빌드 산출물은 관리 대상 파일이 아니며 계속 ignore 상태여야 합니다.
 
 ## 프로필
 
@@ -267,16 +272,16 @@ Follow this process:
 1. Clone or download the starter repository into a temporary directory.
 2. Read the README from the starter repository first.
 3. From the starter checkout, run:
-   python3 scripts/install_harness.py --target <CURRENT_REPOSITORY_ROOT>
+   ./harness install --target <CURRENT_REPOSITORY_ROOT>
 4. In the current repository, create config/project.yaml from config/project.example.yaml if it does not exist yet.
 5. Edit config/project.yaml so it reflects the actual project state.
 6. Choose an appropriate profile and skills for this codebase.
-7. From the current repository root, run python3 scripts/harness.py init --config config/project.yaml with explicit profile and skills.
+7. From the current repository root, run ./harness init --config config/project.yaml with explicit profile and skills.
 8. Keep Docs/ and .ai-harness/ checked into the repository.
 9. Summarize the selected profile, selected skills, generated files, and any assumptions.
 
 Constraints:
-- Do not run scripts/harness.py from the starter checkout when the goal is to modify the current repository.
+- Do not run ./harness init from the starter checkout when the goal is to modify the current repository.
 - Do not break the existing Xcode project structure.
 - Do not ignore .ai-harness/.
 - Prefer minimal, reviewable changes.
@@ -303,18 +308,18 @@ Constraints:
 스타터 체크아웃 또는 이미 하네스 관리 파일이 들어 있는 저장소에서:
 
 ```bash
-python3 scripts/install_harness.py --target /path/to/app-repo
+./harness install --target /path/to/app-repo
 make install-harness TARGET=/path/to/app-repo
 ```
 
 하네스가 이미 설치된 저장소에서:
 
 ```bash
-python3 scripts/harness.py list-skills
-python3 scripts/harness.py list-profiles
-python3 scripts/harness.py init --config config/project.yaml
-python3 scripts/harness.py render-context
-python3 scripts/harness.py upgrade --to intermediate
+./harness list-skills
+./harness list-profiles
+./harness init --config config/project.yaml
+./harness render-context
+./harness upgrade --to intermediate
 make init CONFIG=config/project.yaml
 make context
 make upgrade PROFILE=advanced
