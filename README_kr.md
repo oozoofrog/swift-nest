@@ -70,6 +70,81 @@ python3 scripts/harness.py init \
 python3 scripts/harness.py upgrade --to advanced
 ```
 
+## 사용 시나리오
+
+### 1. 빈 저장소에서 하네스를 처음부터 구성하는 경우
+
+아직 앱 구조가 거의 없거나, 코드보다 먼저 하네스 기준을 잡고 싶은 경우에 적합합니다.
+
+권장 흐름:
+
+1. 이 스타터 저장소를 기반으로 시작하거나, 필요한 하네스 파일을 새 저장소에 복사합니다.
+2. `config/project.example.yaml` 을 프로젝트용 설정 파일로 복사합니다.
+3. 구현이 아직 단순하더라도 의도하는 앱 문맥을 먼저 채웁니다.
+4. 가벼운 프로필과 최소 스킬 세트부터 시작합니다.
+5. `init` 를 실행하고 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
+
+예시:
+
+```bash
+cp config/project.example.yaml my-project.yaml
+python3 scripts/harness.py init \
+  --config my-project.yaml \
+  --profile basic \
+  --skills ios-architecture,swiftui-rules,testing-rules
+```
+
+### 2. 이미 존재하는 iOS 프로젝트 상태에 맞춰 하네스를 적용하는 경우
+
+기존 앱 구조, 프레임워크, 권한, 테스트 방식, 네이밍 규칙을 기준으로 하네스를 맞추고 싶을 때 사용합니다.
+
+권장 흐름:
+
+1. 현재 프로젝트의 아키텍처, 프레임워크 사용, 권한 영역, 테스트 스타일을 먼저 확인합니다.
+2. 하네스 파일을 기존 저장소 루트에 복사합니다.
+3. 실제 프로젝트 상태를 반영해서 `config/project.yaml` 을 작성합니다.
+4. 현재 코드베이스에 맞는 프로필과 스킬을 고릅니다.
+5. `init` 를 실행한 뒤, 생성된 문서가 현재 프로젝트 관습과 맞는지 검토하고 커밋합니다.
+
+예시:
+
+```bash
+cp config/project.example.yaml config/project.yaml
+python3 scripts/harness.py init \
+  --config config/project.yaml \
+  --profile intermediate \
+  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
+```
+
+프로젝트에 위치 권한, HealthKit, 구조화 로그가 이미 중요하게 들어가 있다면 해당 스킬도 초기화 시점에 함께 추가하는 것이 좋습니다.
+
+### 3. 하네스를 먼저 도입하고 이후 더 발전시켜 적용하는 경우
+
+처음에는 가볍게 도입하고, 프로젝트가 커지면서 점진적으로 더 엄격한 기준으로 발전시키고 싶을 때 적합합니다.
+
+권장 흐름:
+
+1. `basic` 또는 `intermediate` 와 최소 스킬 세트로 시작합니다.
+2. 일정 기간 팀이 실제로 하네스를 사용하게 둡니다.
+3. 새 도메인이 코드베이스에 생기면 스킬을 추가합니다.
+4. 리뷰 기준을 강화할 필요가 생기면 프로필을 업그레이드합니다.
+5. 선택 상태가 바뀔 때마다 하네스를 다시 생성하고 커밋합니다.
+
+예시:
+
+```bash
+python3 scripts/harness.py upgrade --to advanced
+```
+
+```bash
+python3 scripts/harness.py init \
+  --config my-project.yaml \
+  --profile advanced \
+  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules,logging-rules
+```
+
+이 방식에서는 `.ai-harness/state.json` 이 이후 rerender 와 profile upgrade 를 이어주는 기준점 역할을 합니다.
+
 ## 프로필
 
 ### `basic`

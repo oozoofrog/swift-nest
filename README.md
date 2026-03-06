@@ -70,6 +70,81 @@ python3 scripts/harness.py init \
 python3 scripts/harness.py upgrade --to advanced
 ```
 
+## Usage Scenarios
+
+### 1. Create a Harness From Scratch in a Brand-New Repository
+
+Use this when you are starting from an empty repository or when the harness should exist before the app structure is fully defined.
+
+Recommended flow:
+
+1. Start from this starter repository or copy its harness files into the new repository.
+2. Copy `config/project.example.yaml` to a project-specific config file.
+3. Fill in the intended app context even if implementation is still minimal.
+4. Pick a light profile and only the skills you know you need.
+5. Run `init` and commit the generated `Docs/` and `.ai-harness/`.
+
+Example:
+
+```bash
+cp config/project.example.yaml my-project.yaml
+python3 scripts/harness.py init \
+  --config my-project.yaml \
+  --profile basic \
+  --skills ios-architecture,swiftui-rules,testing-rules
+```
+
+### 2. Apply the Harness to an Existing iOS Project
+
+Use this when the app already exists and the harness should reflect the current project state instead of an idealized future structure.
+
+Recommended flow:
+
+1. Inspect the existing architecture, frameworks, permission surfaces, testing style, and naming conventions.
+2. Copy the harness files into the existing repository root.
+3. Create `config/project.yaml` from the real project, not from aspiration.
+4. Choose the profile and skills that match the current codebase.
+5. Run `init`, review the generated docs against the existing project, and commit them.
+
+Example:
+
+```bash
+cp config/project.example.yaml config/project.yaml
+python3 scripts/harness.py init \
+  --config config/project.yaml \
+  --profile intermediate \
+  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
+```
+
+If the project already includes location, HealthKit, or logging-heavy code paths, add those skills explicitly during initialization.
+
+### 3. Start With the Harness and Evolve It Over Time
+
+Use this when you want a low-friction starting point first and stricter rules only after the project proves it needs them.
+
+Recommended flow:
+
+1. Start with `basic` or `intermediate` and a minimal skill set.
+2. Let the team work with the harness for a while.
+3. Add skills as new domains become real in the codebase.
+4. Upgrade the profile when review discipline needs to become stricter.
+5. Regenerate and recommit the harness state whenever those choices change.
+
+Examples:
+
+```bash
+python3 scripts/harness.py upgrade --to advanced
+```
+
+```bash
+python3 scripts/harness.py init \
+  --config my-project.yaml \
+  --profile advanced \
+  --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules,logging-rules
+```
+
+In this model, `.ai-harness/state.json` becomes the continuity anchor for future rerenders and upgrades.
+
 ## Profiles
 
 ### `basic`
