@@ -1,6 +1,6 @@
 import Foundation
 
-struct HarnessError: Error {
+struct SwiftNestError: Error {
     let message: String
 
     init(_ message: String) {
@@ -22,7 +22,7 @@ struct ParsedArguments {
     }
 }
 
-struct HarnessState: Codable {
+struct SwiftNestState: Codable {
     var profile: String
     var skills: [String]
     var workflows: [String]
@@ -49,26 +49,27 @@ struct HarnessState: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         profile = try container.decode(String.self, forKey: .profile)
         skills = try container.decode([String].self, forKey: .skills)
-        workflows = try container.decodeIfPresent([String].self, forKey: .workflows) ?? HarnessCLI.defaultWorkflowNames
+        workflows = try container.decodeIfPresent([String].self, forKey: .workflows) ?? SwiftNestCLI.defaultWorkflowNames
         configPath = try container.decode(String.self, forKey: .configPath)
         contextPath = try container.decode(String.self, forKey: .contextPath)
     }
 }
 
-struct GeneratedManifest: Codable {
+struct SwiftNestGeneratedManifest: Codable {
     var files: [String]
     var profile: String
 }
 
-struct HarnessRepository {
+struct SwiftNestRepository {
     static let managedPaths: [String] = [
         "Makefile",
         "config/project.example.yaml",
+        "swiftnest",
         "harness",
         "profiles",
         "templates",
-        "tools/harness-cli/Package.swift",
-        "tools/harness-cli/Sources",
+        "tools/swiftnest-cli/Package.swift",
+        "tools/swiftnest-cli/Sources",
     ]
 
     let rootURL: URL
@@ -80,11 +81,12 @@ struct HarnessRepository {
     var stateDirectoryURL: URL { rootURL.appendingPathComponent(".ai-harness", isDirectory: true) }
     var stateFileURL: URL { stateDirectoryURL.appendingPathComponent("state.json") }
 
-    static func locate() throws -> HarnessRepository {
-        if let envRoot = ProcessInfo.processInfo.environment["HARNESS_ROOT"], !envRoot.isEmpty {
+    static func locate() throws -> SwiftNestRepository {
+        let environment = ProcessInfo.processInfo.environment
+        if let envRoot = environment["SWIFTNEST_ROOT"] ?? environment["HARNESS_ROOT"], !envRoot.isEmpty {
             let url = URL(fileURLWithPath: envRoot, isDirectory: true).resolvingSymlinksInPath()
             if isRepositoryRoot(url) {
-                return HarnessRepository(rootURL: url)
+                return SwiftNestRepository(rootURL: url)
             }
         }
 
@@ -104,11 +106,11 @@ struct HarnessRepository {
         for candidate in candidates {
             let resolved = candidate.resolvingSymlinksInPath()
             if isRepositoryRoot(resolved) {
-                return HarnessRepository(rootURL: resolved)
+                return SwiftNestRepository(rootURL: resolved)
             }
         }
 
-        throw HarnessError("Could not locate the harness repository root.")
+        throw SwiftNestError("Could not locate the SwiftNest repository root.")
     }
 
     private static func isRepositoryRoot(_ url: URL) -> Bool {
@@ -137,7 +139,7 @@ struct HarnessRepository {
     func profileURL(named name: String) throws -> URL {
         let url = profilesURL.appendingPathComponent("\(name).yaml")
         guard fileManager.fileExists(atPath: url.path) else {
-            throw HarnessError("Unknown profile: \(name)")
+            throw SwiftNestError("Unknown profile: \(name)")
         }
         return url
     }
@@ -168,15 +170,15 @@ struct HarnessRepository {
         return rootURL.appendingPathComponent(path)
     }
 
-    func loadState() throws -> HarnessState {
+    func loadState() throws -> SwiftNestState {
         guard fileManager.fileExists(atPath: stateFileURL.path) else {
-            throw HarnessError("No .ai-harness/state.json found. Run init first.")
+            throw SwiftNestError("No .ai-harness/state.json found. Run init first.")
         }
         let data = try Data(contentsOf: stateFileURL)
-        return try JSONDecoder().decode(HarnessState.self, from: data)
+        return try JSONDecoder().decode(SwiftNestState.self, from: data)
     }
 
-    func saveState(_ state: HarnessState) throws {
+    func saveState(_ state: SwiftNestState) throws {
         try fileManager.createDirectory(at: stateDirectoryURL, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -185,7 +187,7 @@ struct HarnessRepository {
     }
 }
 
-enum HarnessCLI {
+enum SwiftNestCLI {
     static let profileGuidance: [String: String] = [
         "basic": "- Keep output concise and implementation-focused.\n- Prefer minimal abstractions.\n- Do not add extra process unless the task clearly benefits.",
         "intermediate": "- Include explicit self-review.\n- Add regression tests for bug fixes when practical.\n- Call out state transition risks when async or permission logic is involved.",
@@ -199,7 +201,7 @@ enum HarnessCLI {
     ]
 
     static func run(arguments: [String]) throws {
-        let repository = try HarnessRepository.locate()
+        let repository = try SwiftNestRepository.locate()
 
         guard let command = arguments.first else {
             printTopLevelUsage()
@@ -259,22 +261,22 @@ enum HarnessCLI {
             }
             try runListProfiles(repository: repository)
         default:
-            throw HarnessError("Unknown command: \(command)")
+            throw SwiftNestError("Unknown command: \(command)")
         }
     }
 
-    static func runInstall(parsed: ParsedArguments, repository: HarnessRepository) throws {
+    static func runInstall(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.isEmpty else {
-            throw HarnessError("Unexpected positional arguments for install: \(parsed.positionals.joined(separator: " "))")
+            throw SwiftNestError("Unexpected positional arguments for install: \(parsed.positionals.joined(separator: " "))")
         }
 
         guard let target = parsed.value(for: "--target"), !target.isEmpty else {
-            throw HarnessError("install requires --target <path>.")
+            throw SwiftNestError("install requires --target <path>.")
         }
 
         let targetURL = URL(fileURLWithPath: target, isDirectory: true).standardizedFileURL
         if targetURL.path == repository.rootURL.standardizedFileURL.path {
-            throw HarnessError("Target repository must be different from the starter repository root.")
+            throw SwiftNestError("Target repository must be different from the starter repository root.")
         }
 
         try repository.fileManager.createDirectory(at: targetURL, withIntermediateDirectories: true)
@@ -283,7 +285,7 @@ enum HarnessCLI {
 
         let mode = parsed.contains("--dry-run") ? "Previewed" : "Installed"
         printWarnings(for: targetURL, fileManager: repository.fileManager)
-        print("\(mode) harness-managed files into \(targetURL.path)")
+        print("\(mode) SwiftNest-managed files into \(targetURL.path)")
         print("Changed files: \(result.copied)")
         print("Unchanged files: \(result.unchanged)")
 
@@ -292,17 +294,17 @@ enum HarnessCLI {
             print("  cd \(targetURL.path)")
             print("  test -f config/project.yaml || cp config/project.example.yaml config/project.yaml")
             print("  edit config/project.yaml")
-            print("  ./harness init --config config/project.yaml --profile intermediate")
+            print("  ./swiftnest init --config config/project.yaml --profile intermediate")
         }
     }
 
-    static func runInit(parsed: ParsedArguments, repository: HarnessRepository) throws {
+    static func runInit(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.isEmpty else {
-            throw HarnessError("Unexpected positional arguments for init: \(parsed.positionals.joined(separator: " "))")
+            throw SwiftNestError("Unexpected positional arguments for init: \(parsed.positionals.joined(separator: " "))")
         }
 
         guard let configValue = parsed.value(for: "--config"), !configValue.isEmpty else {
-            throw HarnessError("init requires --config <path>.")
+            throw SwiftNestError("init requires --config <path>.")
         }
 
         let configURL = URL(fileURLWithPath: configValue, relativeTo: repository.rootURL).standardizedFileURL
@@ -356,7 +358,7 @@ enum HarnessCLI {
         try profileText.write(to: selectedProfileURL, atomically: true, encoding: .utf8)
         try (skills.joined(separator: "\n") + "\n").write(to: selectedSkillsURL, atomically: true, encoding: .utf8)
 
-        let state = HarnessState(
+        let state = SwiftNestState(
             profile: profileName,
             skills: skills,
             workflows: renderedWorkflows,
@@ -365,23 +367,23 @@ enum HarnessCLI {
         )
         try repository.saveState(state)
 
-        print("Initialized harness with profile '\(profileName)' and skills: \(skills.joined(separator: ", "))")
+        print("Initialized SwiftNest with profile '\(profileName)' and skills: \(skills.joined(separator: ", "))")
         print("Rendered context: \(contextURL.path)")
     }
 
-    static func runUpgrade(parsed: ParsedArguments, repository: HarnessRepository) throws {
+    static func runUpgrade(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.isEmpty else {
-            throw HarnessError("Unexpected positional arguments for upgrade: \(parsed.positionals.joined(separator: " "))")
+            throw SwiftNestError("Unexpected positional arguments for upgrade: \(parsed.positionals.joined(separator: " "))")
         }
 
         guard let targetProfile = parsed.value(for: "--to"), !targetProfile.isEmpty else {
-            throw HarnessError("upgrade requires --to <profile>.")
+            throw SwiftNestError("upgrade requires --to <profile>.")
         }
 
         var state = try repository.loadState()
         let configURL = repository.resolveStatePath(state.configPath)
         guard repository.fileManager.fileExists(atPath: configURL.path) else {
-            throw HarnessError("Config path not found: \(configURL.path)")
+            throw SwiftNestError("Config path not found: \(configURL.path)")
         }
 
         let profile = try HarnessDocumentLoader.loadObject(at: repository.profileURL(named: targetProfile))
@@ -427,11 +429,11 @@ enum HarnessCLI {
         try profileText.write(to: selectedProfileURL, atomically: true, encoding: .utf8)
         try (mergedSkills.joined(separator: "\n") + "\n").write(to: selectedSkillsURL, atomically: true, encoding: .utf8)
 
-        print("Upgraded harness to '\(targetProfile)'.")
+        print("Upgraded SwiftNest to '\(targetProfile)'.")
         print("Current skills: \(mergedSkills.joined(separator: ", "))")
     }
 
-    static func runRenderContext(repository: HarnessRepository) throws {
+    static func runRenderContext(repository: SwiftNestRepository) throws {
         let state = try repository.loadState()
         let workflows = normalizedWorkflowNames(state.workflows)
         let contextURL = try renderContextBundle(
@@ -443,13 +445,13 @@ enum HarnessCLI {
         print(contextURL.path)
     }
 
-    static func runListSkills(repository: HarnessRepository) throws {
+    static func runListSkills(repository: SwiftNestRepository) throws {
         for skill in try repository.availableSkills() {
             print(skill)
         }
     }
 
-    static func runListProfiles(repository: HarnessRepository) throws {
+    static func runListProfiles(repository: SwiftNestRepository) throws {
         for profileURL in try repository.availableProfiles() {
             let data = try HarnessDocumentLoader.loadObject(at: profileURL)
             let description = HarnessDocumentLoader.string(data, key: "description", default: "")
@@ -457,7 +459,7 @@ enum HarnessCLI {
         }
     }
 
-    static func runWorkflow(arguments: [String], repository: HarnessRepository) throws {
+    static func runWorkflow(arguments: [String], repository: SwiftNestRepository) throws {
         guard let subcommand = arguments.first else {
             printWorkflowUsage()
             return
@@ -493,11 +495,11 @@ enum HarnessCLI {
             }
             try runWorkflowScaffold(parsed: parsed, repository: repository)
         default:
-            throw HarnessError("Unknown workflow subcommand: \(subcommand)")
+            throw SwiftNestError("Unknown workflow subcommand: \(subcommand)")
         }
     }
 
-    static func runWorkflowList(repository: HarnessRepository) throws {
+    static func runWorkflowList(repository: SwiftNestRepository) throws {
         let enabled = try currentWorkflowSet(repository: repository)
         for definition in orderedWorkflowDefinitions() {
             let kind = definition.isDefault ? "default" : "optional"
@@ -506,9 +508,9 @@ enum HarnessCLI {
         }
     }
 
-    static func runWorkflowPrint(parsed: ParsedArguments, repository: HarnessRepository) throws {
+    static func runWorkflowPrint(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.count == 1 else {
-            throw HarnessError("workflow print requires exactly one workflow name.")
+            throw SwiftNestError("workflow print requires exactly one workflow name.")
         }
 
         let name = parsed.positionals[0]
@@ -524,7 +526,7 @@ enum HarnessCLI {
         print(content)
     }
 
-    static func runWorkflowScaffold(parsed: ParsedArguments, repository: HarnessRepository) throws {
+    static func runWorkflowScaffold(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         let (state, config) = try currentStateAndConfig(repository: repository)
         let workflows = try currentWorkflowSet(from: state, extraNames: parsed.positionals)
         let renderedWorkflows = try scaffoldWorkflowFiles(
@@ -556,24 +558,24 @@ enum HarnessCLI {
         print("Scaffolded workflows: \(renderedWorkflows.joined(separator: ", "))")
     }
 
-    static func currentStateAndConfig(repository: HarnessRepository) throws -> (HarnessState, [String: Any]) {
+    static func currentStateAndConfig(repository: SwiftNestRepository) throws -> (SwiftNestState, [String: Any]) {
         let state = try repository.loadState()
         let configURL = repository.resolveStatePath(state.configPath)
         guard repository.fileManager.fileExists(atPath: configURL.path) else {
-            throw HarnessError("Config path not found: \(configURL.path)")
+            throw SwiftNestError("Config path not found: \(configURL.path)")
         }
         let config = try HarnessDocumentLoader.loadObject(at: configURL)
         return (state, config)
     }
 
-    static func currentWorkflowSet(repository: HarnessRepository) throws -> [String] {
+    static func currentWorkflowSet(repository: SwiftNestRepository) throws -> [String] {
         if let state = try? repository.loadState() {
             return normalizedWorkflowNames(state.workflows)
         }
         return defaultWorkflowNames
     }
 
-    static func currentWorkflowSet(from state: HarnessState, extraNames: [String]) throws -> [String] {
+    static func currentWorkflowSet(from state: SwiftNestState, extraNames: [String]) throws -> [String] {
         let base = Set(normalizedWorkflowNames(state.workflows))
         let extras = try validateWorkflowNames(extraNames)
         let merged = base.union(extras)
@@ -584,7 +586,7 @@ enum HarnessCLI {
         var valid: Set<String> = []
         for name in names {
             guard workflowDefinitions[name] != nil else {
-                throw HarnessError("Unknown workflow: \(name)")
+                throw SwiftNestError("Unknown workflow: \(name)")
             }
             valid.insert(name)
         }
@@ -601,7 +603,7 @@ enum HarnessCLI {
             let arg = args[index]
             if valueOptions.contains(arg) {
                 guard index + 1 < args.count else {
-                    throw HarnessError("Missing value for \(arg).")
+                    throw SwiftNestError("Missing value for \(arg).")
                 }
                 values[arg] = args[index + 1]
                 index += 2
@@ -613,7 +615,7 @@ enum HarnessCLI {
                 continue
             }
             if arg.hasPrefix("--") || arg.hasPrefix("-") {
-                throw HarnessError("Unknown option: \(arg)")
+                throw SwiftNestError("Unknown option: \(arg)")
             }
             positionals.append(arg)
             index += 1
@@ -624,7 +626,7 @@ enum HarnessCLI {
 
     static func normalizeContext(config: [String: Any], profileName: String) throws -> [String: String] {
         guard let profileGuidance = profileGuidance[profileName], let workflowGuidance = workflowGuidance[profileName] else {
-            throw HarnessError("Unknown profile: \(profileName)")
+            throw SwiftNestError("Unknown profile: \(profileName)")
         }
 
         return [
@@ -656,7 +658,7 @@ enum HarnessCLI {
         return rendered
     }
 
-    static func writeDocs(context: [String: String], skills: [String], profileName: String, repository: HarnessRepository) throws {
+    static func writeDocs(context: [String: String], skills: [String], profileName: String, repository: SwiftNestRepository) throws {
         let fileManager = repository.fileManager
         let docsURL = repository.rootURL.appendingPathComponent("Docs", isDirectory: true)
         let skillsURL = docsURL.appendingPathComponent("AI_SKILLS", isDirectory: true)
@@ -673,7 +675,7 @@ enum HarnessCLI {
         let manifestURL = skillsURL.appendingPathComponent(".generated_manifest.json")
         if fileManager.fileExists(atPath: manifestURL.path) {
             let data = try? Data(contentsOf: manifestURL)
-            if let data, let manifest = try? JSONDecoder().decode(GeneratedManifest.self, from: data) {
+            if let data, let manifest = try? JSONDecoder().decode(SwiftNestGeneratedManifest.self, from: data) {
                 for fileName in manifest.files {
                     let generatedURL = skillsURL.appendingPathComponent(fileName)
                     if fileManager.fileExists(atPath: generatedURL.path) {
@@ -687,7 +689,7 @@ enum HarnessCLI {
         for skill in skills {
             let sourceURL = repository.templatesURL.appendingPathComponent("Docs/AI_SKILLS/\(skill).md")
             guard fileManager.fileExists(atPath: sourceURL.path) else {
-                throw HarnessError("Unknown skill template: \(skill)")
+                throw SwiftNestError("Unknown skill template: \(skill)")
             }
             let destinationURL = skillsURL.appendingPathComponent(sourceURL.lastPathComponent)
             let template = try String(contentsOf: sourceURL, encoding: .utf8)
@@ -695,7 +697,7 @@ enum HarnessCLI {
             generatedFiles.append(sourceURL.lastPathComponent)
         }
 
-        let manifest = GeneratedManifest(files: generatedFiles, profile: profileName)
+        let manifest = SwiftNestGeneratedManifest(files: generatedFiles, profile: profileName)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(manifest)
@@ -706,7 +708,7 @@ enum HarnessCLI {
         profileName: String,
         skills: [String],
         workflows: [String],
-        repository: HarnessRepository
+        repository: SwiftNestRepository
     ) throws -> URL {
         let docsURL = repository.rootURL.appendingPathComponent("Docs", isDirectory: true)
         let outputDirectoryURL = repository.stateDirectoryURL
@@ -757,7 +759,7 @@ enum HarnessCLI {
         return outputURL
     }
 
-    static func chooseProfileInteractively(repository: HarnessRepository) throws -> String {
+    static func chooseProfileInteractively(repository: SwiftNestRepository) throws -> String {
         let profiles = try repository.availableProfiles().map { $0.deletingPathExtension().lastPathComponent }
         print("Profiles:")
         for (index, name) in profiles.enumerated() {
@@ -767,12 +769,12 @@ enum HarnessCLI {
         let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let chosen = raw.isEmpty ? "1" : raw
         guard let number = Int(chosen), profiles.indices.contains(number - 1) else {
-            throw HarnessError("Profile choice out of range")
+            throw SwiftNestError("Profile choice out of range")
         }
         return profiles[number - 1]
     }
 
-    static func chooseSkillsInteractively(defaultSkills: [String], repository: HarnessRepository) throws -> [String] {
+    static func chooseSkillsInteractively(defaultSkills: [String], repository: SwiftNestRepository) throws -> [String] {
         let skills = try repository.availableSkills()
         print("Available skills:")
         for (index, skill) in skills.enumerated() {
@@ -789,17 +791,17 @@ enum HarnessCLI {
         for token in raw.split(separator: ",") {
             let trimmed = token.trimmingCharacters(in: .whitespaces)
             guard let number = Int(trimmed) else {
-                throw HarnessError("Invalid selection: \(trimmed)")
+                throw SwiftNestError("Invalid selection: \(trimmed)")
             }
             guard skills.indices.contains(number - 1) else {
-                throw HarnessError("Selection out of range: \(trimmed)")
+                throw SwiftNestError("Selection out of range: \(trimmed)")
             }
             chosen.append(skills[number - 1])
         }
         return Array(Set(chosen)).sorted()
     }
 
-    static func installManagedFiles(into targetURL: URL, force: Bool, dryRun: Bool, repository: HarnessRepository) throws -> (copied: Int, unchanged: Int) {
+    static func installManagedFiles(into targetURL: URL, force: Bool, dryRun: Bool, repository: SwiftNestRepository) throws -> (copied: Int, unchanged: Int) {
         let fileManager = repository.fileManager
         var copied = 0
         var unchanged = 0
@@ -809,7 +811,7 @@ enum HarnessCLI {
             let destinationURL = targetURL.appendingPathComponent(relativePath)
             var isDirectory: ObjCBool = false
             if fileManager.fileExists(atPath: destinationURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
-                throw HarnessError("Expected file but found directory at target path: \(relativePath)")
+                throw SwiftNestError("Expected file but found directory at target path: \(relativePath)")
             }
 
             if fileManager.fileExists(atPath: destinationURL.path) {
@@ -840,7 +842,7 @@ enum HarnessCLI {
 
         if !conflicts.isEmpty {
             let joined = conflicts.map { "- \($0)" }.joined(separator: "\n")
-            throw HarnessError(
+            throw SwiftNestError(
                 "Refusing to overwrite managed files in the target repository.\n"
                     + "Re-run with --force if these files should be replaced:\n"
                     + joined
@@ -850,13 +852,13 @@ enum HarnessCLI {
         return (copied, unchanged)
     }
 
-    static func iterManagedFiles(repository: HarnessRepository) throws -> [(URL, String)] {
+    static func iterManagedFiles(repository: SwiftNestRepository) throws -> [(URL, String)] {
         var files: [(URL, String)] = []
-        for relativePath in HarnessRepository.managedPaths {
+        for relativePath in SwiftNestRepository.managedPaths {
             let sourceURL = repository.rootURL.appendingPathComponent(relativePath)
             var isDirectory: ObjCBool = false
             guard repository.fileManager.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory) else {
-                throw HarnessError("Managed path is missing from starter: \(relativePath)")
+                throw SwiftNestError("Managed path is missing from starter: \(relativePath)")
             }
             if isDirectory.boolValue {
                 let enumerator = repository.fileManager.enumerator(at: sourceURL, includingPropertiesForKeys: [.isRegularFileKey])
@@ -903,10 +905,10 @@ enum HarnessCLI {
     static func printTopLevelUsage() {
         print(
             """
-            usage: harness <command> [options]
+            usage: swiftnest <command> [options]
 
             Commands:
-              install        Install harness-managed files into a target repository
+              install        Install SwiftNest-managed files into a target repository
               init           Initialize docs from config, profile, and skills
               upgrade        Upgrade to a stricter profile
               workflow       Manage workflow scaffolds
@@ -918,21 +920,21 @@ enum HarnessCLI {
     }
 
     static func printInstallUsage() {
-        print("usage: harness install --target <path> [--force] [--dry-run]")
+        print("usage: swiftnest install --target <path> [--force] [--dry-run]")
     }
 
     static func printInitUsage() {
-        print("usage: harness init --config <path> [--profile <name>] [--skills <csv>] [--non-interactive]")
+        print("usage: swiftnest init --config <path> [--profile <name>] [--skills <csv>] [--non-interactive]")
     }
 
     static func printUpgradeUsage() {
-        print("usage: harness upgrade --to <profile>")
+        print("usage: swiftnest upgrade --to <profile>")
     }
 
     static func printWorkflowUsage() {
         print(
             """
-            usage: harness workflow <subcommand> [options]
+            usage: swiftnest workflow <subcommand> [options]
 
             Subcommands:
               list                 List supported workflows and current status
@@ -943,26 +945,26 @@ enum HarnessCLI {
     }
 
     static func printWorkflowListUsage() {
-        print("usage: harness workflow list")
+        print("usage: swiftnest workflow list")
     }
 
     static func printWorkflowPrintUsage() {
-        print("usage: harness workflow print <name>")
+        print("usage: swiftnest workflow print <name>")
     }
 
     static func printWorkflowScaffoldUsage() {
-        print("usage: harness workflow scaffold [name ...]")
+        print("usage: swiftnest workflow scaffold [name ...]")
     }
 
     static func printRenderContextUsage() {
-        print("usage: harness render-context")
+        print("usage: swiftnest render-context")
     }
 
     static func printListSkillsUsage() {
-        print("usage: harness list-skills")
+        print("usage: swiftnest list-skills")
     }
 
     static func printListProfilesUsage() {
-        print("usage: harness list-profiles")
+        print("usage: swiftnest list-profiles")
     }
 }

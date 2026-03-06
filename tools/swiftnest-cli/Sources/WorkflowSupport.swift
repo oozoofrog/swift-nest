@@ -1,55 +1,55 @@
 import Foundation
 
-struct HarnessWorkflowDefinition {
+struct SwiftNestWorkflowDefinition {
     let name: String
     let description: String
     let templatePath: String
     let isDefault: Bool
 }
 
-extension HarnessCLI {
+extension SwiftNestCLI {
     static let defaultWorkflowNames = ["add-feature", "fix-bug", "refactor", "build"]
     static let optionalWorkflowNames = ["permissions", "networking", "review"]
 
-    static let workflowDefinitions: [String: HarnessWorkflowDefinition] = {
+    static let workflowDefinitions: [String: SwiftNestWorkflowDefinition] = {
         let definitions = [
-            HarnessWorkflowDefinition(
+            SwiftNestWorkflowDefinition(
                 name: "add-feature",
                 description: "Use for new features or visible behavior additions.",
                 templatePath: "Workflows/add-feature.md",
                 isDefault: true
             ),
-            HarnessWorkflowDefinition(
+            SwiftNestWorkflowDefinition(
                 name: "fix-bug",
                 description: "Use for bug fixes and regression repairs.",
                 templatePath: "Workflows/fix-bug.md",
                 isDefault: true
             ),
-            HarnessWorkflowDefinition(
+            SwiftNestWorkflowDefinition(
                 name: "refactor",
                 description: "Use for structure-only changes that preserve behavior.",
                 templatePath: "Workflows/refactor.md",
                 isDefault: true
             ),
-            HarnessWorkflowDefinition(
+            SwiftNestWorkflowDefinition(
                 name: "build",
                 description: "Use for build or test verification work.",
                 templatePath: "Workflows/build.md",
                 isDefault: true
             ),
-            HarnessWorkflowDefinition(
+            SwiftNestWorkflowDefinition(
                 name: "permissions",
                 description: "Use when device authorization states are part of the task.",
                 templatePath: "Workflows/permissions.md",
                 isDefault: false
             ),
-            HarnessWorkflowDefinition(
+            SwiftNestWorkflowDefinition(
                 name: "networking",
                 description: "Use for request/response and remote repository changes.",
                 templatePath: "Workflows/networking.md",
                 isDefault: false
             ),
-            HarnessWorkflowDefinition(
+            SwiftNestWorkflowDefinition(
                 name: "review",
                 description: "Use for findings-first code review tasks.",
                 templatePath: "Workflows/review.md",
@@ -60,7 +60,7 @@ extension HarnessCLI {
         return Dictionary(uniqueKeysWithValues: definitions.map { ($0.name, $0) })
     }()
 
-    static func orderedWorkflowDefinitions() -> [HarnessWorkflowDefinition] {
+    static func orderedWorkflowDefinitions() -> [SwiftNestWorkflowDefinition] {
         (defaultWorkflowNames + optionalWorkflowNames).compactMap { workflowDefinitions[$0] }
     }
 
@@ -142,10 +142,10 @@ extension HarnessCLI {
         profileName: String,
         skills: [String],
         workflows: [String],
-        repository: HarnessRepository
+        repository: SwiftNestRepository
     ) throws -> String {
         guard let definition = workflowDefinitions[name] else {
-            throw HarnessError("Unknown workflow: \(name)")
+            throw SwiftNestError("Unknown workflow: \(name)")
         }
 
         let baseContext = try normalizeContext(config: config, profileName: profileName)
@@ -160,7 +160,7 @@ extension HarnessCLI {
         profileName: String,
         skills: [String],
         workflows: [String],
-        repository: HarnessRepository
+        repository: SwiftNestRepository
     ) throws {
         let baseContext = try normalizeContext(config: config, profileName: profileName)
         let mergedContext = mergedContext(base: baseContext, extra: workflowContext(config: config, skills: skills, workflows: workflows))
@@ -175,7 +175,7 @@ extension HarnessCLI {
         profileName: String,
         skills: [String],
         workflows: [String],
-        repository: HarnessRepository
+        repository: SwiftNestRepository
     ) throws -> [String] {
         let enabledWorkflows = normalizedWorkflowNames(workflows)
         let outputDirectoryURL = repository.stateDirectoryURL.appendingPathComponent("workflows", isDirectory: true)

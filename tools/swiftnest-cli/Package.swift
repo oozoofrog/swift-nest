@@ -3,16 +3,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "HarnessCLI",
+    name: "SwiftNestCLI",
     platforms: [
         .macOS(.v13),
     ],
     products: [
-        .executable(name: "harness", targets: ["HarnessCLI"]),
+        .executable(name: "swiftnest", targets: ["SwiftNestCLI"]),
     ],
     targets: [
         .executableTarget(
-            name: "HarnessCLI",
+            name: "SwiftNestCLI",
             path: "Sources"
         ),
     ]

@@ -3,3 +3,5 @@ __pycache__/
 .DS_Store
 tools/harness-cli/.build/
 tools/harness-cli/.swiftpm/
+tools/swiftnest-cli/.build/
+tools/swiftnest-cli/.swiftpm/

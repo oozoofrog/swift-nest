@@ -1,14 +1,14 @@
-# iOS AI Harness Starter
+# SwiftNest
 
 English | [Korean](README_kr.md)
 
-This repository is a starter for installing a consistent AI working harness into iOS and SwiftUI codebases.
+SwiftNest is a starter for installing a consistent agent workflow setup into iOS and SwiftUI codebases.
 
-It generates project-specific rules, workflows, and task prompts so agents can work against the same constraints every time. This is not a buildable iOS app template. It is a harness starter for real app repositories.
+It generates project-specific rules, workflows, task prompts, and Codex entrypoints so agents can work against the same constraints every time. This is not a buildable iOS app template. It is a starter for real app repositories.
 
 Canonical GitHub repository:
 
-`https://github.com/oozoofrog/ios-ai-harness-starter`
+`https://github.com/oozoofrog/swift-nest`
 
 ## Why This Exists
 
@@ -19,7 +19,7 @@ Canonical GitHub repository:
 
 ## What It Generates
 
-The harness generates project-facing documents and state files like this:
+SwiftNest generates project-facing documents and state files like this:
 
 ```text
 AGENTS.md
@@ -43,7 +43,7 @@ Docs/
 
 `Docs/` and `.ai-harness/` are first-class harness assets. Track them in version control by default.
 
-The `./harness` shell entrypoint builds a local macOS Swift binary on first use, so no Python runtime is required.
+The `./swiftnest` shell entrypoint builds a local macOS Swift binary on first use, so no Python runtime is required.
 
 ## Link-Only Agent Setup
 
@@ -58,22 +58,22 @@ If an agent only receives this GitHub link, the expected installation flow is:
 Example:
 
 ```bash
-git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-/tmp/ios-ai-harness-starter/harness install --target /path/to/current-ios-repo
+git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
+/tmp/swift-nest/swiftnest install --target /path/to/current-ios-repo
 
 cd /path/to/current-ios-repo
 test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
-./harness init \
+./swiftnest init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
 ```
 
-The first invocation builds a local Swift binary under `tools/harness-cli/.build/`. Do not run `./harness init` inside the starter checkout when the goal is to install the harness into another repository.
+The first invocation builds a local Swift binary under `tools/swiftnest-cli/.build/`. Do not run `./swiftnest init` inside the starter checkout when the goal is to install SwiftNest into another repository.
 
 ## Quick Start
 
-This section assumes the current repository already contains the harness-managed files and that the macOS Swift toolchain is available.
+This section assumes the current repository already contains the SwiftNest-managed files and that the macOS Swift toolchain is available.
 
 ### 1. Copy the example config
 
@@ -90,13 +90,13 @@ If you already know the preferred verification commands for the project, set opt
 ### 3. Run the initializer interactively
 
 ```bash
-./harness init --config config/project.yaml
+./swiftnest init --config config/project.yaml
 ```
 
 ### 4. Run the initializer non-interactively
 
 ```bash
-./harness init \
+./swiftnest init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,testing-rules,location-rules
@@ -105,10 +105,10 @@ If you already know the preferred verification commands for the project, set opt
 ### 5. Rerender or upgrade later
 
 ```bash
-./harness render-context
-./harness upgrade --to advanced
-./harness workflow list
-./harness workflow scaffold permissions review
+./swiftnest render-context
+./swiftnest upgrade --to advanced
+./swiftnest workflow list
+./swiftnest workflow scaffold permissions review
 ```
 
 `upgrade` requires an existing `.ai-harness/state.json`, so run `init` first.
@@ -117,13 +117,13 @@ If you already know the preferred verification commands for the project, set opt
 
 ### 1. Create a Harness in a Brand-New Repository
 
-Use this when the repository is empty or when the harness should exist before the app structure is fully defined.
+Use this when the repository is empty or when SwiftNest should exist before the app structure is fully defined.
 
 Recommended flow:
 
 1. Create the new repository or enter the empty repository root.
 2. Clone this starter to a temporary directory.
-3. Install the managed harness files into the new repository.
+3. Install the managed SwiftNest files into the new repository.
 4. Create `config/project.yaml` and fill in the intended app context.
 5. Start with a light profile and a small skill set.
 6. Run `init` and commit the generated `Docs/` and `.ai-harness/`.
@@ -135,11 +135,11 @@ mkdir MyNewApp
 cd MyNewApp
 git init
 
-git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-/tmp/ios-ai-harness-starter/harness install --target "$PWD"
+git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
+/tmp/swift-nest/swiftnest install --target "$PWD"
 
 cp config/project.example.yaml config/project.yaml
-./harness init \
+./swiftnest init \
   --config config/project.yaml \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules
@@ -147,12 +147,12 @@ cp config/project.example.yaml config/project.yaml
 
 ### 2. Apply the Harness to an Existing iOS Project
 
-Use this when the app already exists and the harness should reflect the current project state instead of an idealized future structure.
+Use this when the app already exists and SwiftNest should reflect the current project state instead of an idealized future structure.
 
 Recommended flow:
 
 1. Inspect the existing architecture, frameworks, permission surfaces, testing style, and naming conventions.
-2. Install the managed harness files into the repository root.
+2. Install the managed SwiftNest files into the repository root.
 3. Create `config/project.yaml` from the real project, not from aspiration.
 4. Choose the profile and skills that match the current codebase.
 5. Run `init`, review the generated docs against the current project, and commit them.
@@ -162,17 +162,17 @@ Example:
 ```bash
 cd /path/to/existing-ios-repo
 
-git clone https://github.com/oozoofrog/ios-ai-harness-starter.git /tmp/ios-ai-harness-starter
-/tmp/ios-ai-harness-starter/harness install --target "$PWD"
+git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
+/tmp/swift-nest/swiftnest install --target "$PWD"
 
 test -f config/project.yaml || cp config/project.example.yaml config/project.yaml
-./harness init \
+./swiftnest init \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules
 ```
 
-If the project already includes location, HealthKit, or logging-heavy code paths, add those skills explicitly during initialization. Optional workflow scaffolds such as `permissions`, `networking`, or `review` can be added later with `./harness workflow scaffold ...`.
+If the project already includes location, HealthKit, or logging-heavy code paths, add those skills explicitly during initialization. Optional workflow scaffolds such as `permissions`, `networking`, or `review` can be added later with `./swiftnest workflow scaffold ...`.
 
 ### 3. Start With the Harness and Evolve It Over Time
 
@@ -180,23 +180,23 @@ Use this when you want a low-friction starting point first and stricter rules on
 
 Recommended flow:
 
-1. Install the harness once and initialize it with `basic` or `intermediate`.
-2. Let the team work with the harness for a while.
+1. Install SwiftNest once and initialize it with `basic` or `intermediate`.
+2. Let the team work with SwiftNest for a while.
 3. Add skills as new domains become real in the codebase.
 4. Upgrade the profile when review discipline needs to become stricter.
-5. Regenerate and recommit the harness state whenever those choices change.
+5. Regenerate and recommit the SwiftNest state whenever those choices change.
 
 Example:
 
 ```bash
-./harness init \
+./swiftnest init \
   --config config/project.yaml \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules
 
-./harness upgrade --to intermediate
-./harness upgrade --to advanced
-./harness render-context
+./swiftnest upgrade --to intermediate
+./swiftnest upgrade --to advanced
+./swiftnest render-context
 ```
 
 In this model, `.ai-harness/state.json` is the continuity anchor for future rerenders and upgrades.
@@ -205,21 +205,24 @@ Optional workflows stay opt-in. Re-running `init` resets the workflow set back t
 
 ## Managed Files
 
-The installer copies only the harness-managed files:
+The installer copies only the SwiftNest-managed files:
 
 ```text
 Makefile
 config/project.example.yaml
+swiftnest
 harness
 profiles/
 templates/
-tools/harness-cli/Package.swift
-tools/harness-cli/Sources/
+tools/swiftnest-cli/Package.swift
+tools/swiftnest-cli/Sources/
 ```
 
 If a managed file already exists in the target repository with different contents, the installer stops unless you pass `--force`.
 
-Local build artifacts under `tools/harness-cli/.build/` are not part of the managed files and should stay ignored.
+Local build artifacts under `tools/swiftnest-cli/.build/` are not part of the managed files and should stay ignored.
+
+`harness` remains as a compatibility shim that forwards to `swiftnest`.
 
 ## Profiles
 
@@ -275,25 +278,25 @@ Local build artifacts under `tools/harness-cli/.build/` are not part of the mana
 You can hand the following prompt to an agent together with this GitHub link:
 
 ```text
-Use this repository as the harness starter:
-https://github.com/oozoofrog/ios-ai-harness-starter
+Use this repository as the SwiftNest starter:
+https://github.com/oozoofrog/swift-nest
 
-Your job is to install this AI harness into the current iOS repository.
+Your job is to install SwiftNest into the current iOS repository.
 
 Follow this process:
 1. Clone or download the starter repository into a temporary directory.
 2. Read the README from the starter repository first.
 3. From the starter checkout, run:
-   ./harness install --target <CURRENT_REPOSITORY_ROOT>
+   ./swiftnest install --target <CURRENT_REPOSITORY_ROOT>
 4. In the current repository, create config/project.yaml from config/project.example.yaml if it does not exist yet.
 5. Edit config/project.yaml so it reflects the actual project state.
 6. Choose an appropriate profile and skills for this codebase.
-7. From the current repository root, run ./harness init --config config/project.yaml with explicit profile and skills.
+7. From the current repository root, run ./swiftnest init --config config/project.yaml with explicit profile and skills.
 8. Keep Docs/ and .ai-harness/ checked into the repository.
 9. Summarize the selected profile, selected skills, generated files, and any assumptions.
 
 Constraints:
-- Do not run ./harness init from the starter checkout when the goal is to modify the current repository.
+- Do not run ./swiftnest init from the starter checkout when the goal is to modify the current repository.
 - Do not break the existing Xcode project structure.
 - Do not ignore .ai-harness/.
 - Prefer minimal, reviewable changes.
@@ -301,7 +304,7 @@ Constraints:
 - If .ai-harness/state.json already exists, treat it as the current harness state before rerendering or upgrading.
 ```
 
-The point of this prompt is to let an agent use this starter repository as a source of harness files while installing the actual harness into the app repository that will be worked on.
+The point of this prompt is to let an agent use this starter repository as a source of SwiftNest files while installing the actual setup into the app repository that will be worked on.
 
 ## State Files
 
@@ -314,28 +317,28 @@ Other files in `.ai-harness/`:
 - `rendered_context.md`
 - `workflows/*.md`
 
-Paths inside the state file are stored relative to the repository when possible, so the harness survives being moved to another machine.
+Paths inside the state file are stored relative to the repository when possible, so SwiftNest survives being moved to another machine.
 
 ## Commands
 
-From a starter checkout or any repository that already contains the managed harness files:
+From a starter checkout or any repository that already contains the managed SwiftNest files:
 
 ```bash
-./harness install --target /path/to/app-repo
-make install-harness TARGET=/path/to/app-repo
+./swiftnest install --target /path/to/app-repo
+make install-swiftnest TARGET=/path/to/app-repo
 ```
 
-From a repository where the harness has already been installed:
+From a repository where SwiftNest has already been installed:
 
 ```bash
-./harness list-skills
-./harness list-profiles
-./harness init --config config/project.yaml
-./harness workflow list
-./harness workflow print add-feature
-./harness workflow scaffold permissions review
-./harness render-context
-./harness upgrade --to intermediate
+./swiftnest list-skills
+./swiftnest list-profiles
+./swiftnest init --config config/project.yaml
+./swiftnest workflow list
+./swiftnest workflow print add-feature
+./swiftnest workflow scaffold permissions review
+./swiftnest render-context
+./swiftnest upgrade --to intermediate
 make init CONFIG=config/project.yaml
 make context
 make upgrade PROFILE=advanced
@@ -348,7 +351,7 @@ If you want to publish your own copy of this starter:
 ```bash
 git init
 git add .
-git commit -m "Initial AI harness starter"
+git commit -m "Initial SwiftNest starter"
 git branch -M main
 git remote add origin <YOUR_GITHUB_REPO_URL>
 git push -u origin main

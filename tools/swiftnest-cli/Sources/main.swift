@@ -1,8 +1,8 @@
 import Foundation
 
 do {
-    try HarnessCLI.run(arguments: Array(CommandLine.arguments.dropFirst()))
-} catch let error as HarnessError {
+    try SwiftNestCLI.run(arguments: Array(CommandLine.arguments.dropFirst()))
+} catch let error as SwiftNestError {
     fputs("error: \(error.message)\n", stderr)
     exit(1)
 } catch {

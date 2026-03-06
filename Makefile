@@ -1,23 +1,27 @@
-HARNESS ?= ./harness
+SWIFTNEST ?= ./swiftnest
+HARNESS ?= $(SWIFTNEST)
 CONFIG ?= config/project.yaml
 TARGET ?=
 PROFILE ?= intermediate
 
-install-harness:
+install-swiftnest:
 	@test -n "$(TARGET)" || (echo "TARGET is required"; exit 1)
-	$(HARNESS) install --target "$(TARGET)"
+	$(SWIFTNEST) install --target "$(TARGET)"
+
+install-harness:
+	$(MAKE) install-swiftnest TARGET="$(TARGET)" SWIFTNEST="$(SWIFTNEST)"
 
 list-skills:
-	$(HARNESS) list-skills
+	$(SWIFTNEST) list-skills
 
 list-profiles:
-	$(HARNESS) list-profiles
+	$(SWIFTNEST) list-profiles
 
 init:
-	$(HARNESS) init --config $(CONFIG)
+	$(SWIFTNEST) init --config $(CONFIG)
 
 context:
-	$(HARNESS) render-context
+	$(SWIFTNEST) render-context
 
 upgrade:
-	$(HARNESS) upgrade --to $(PROFILE)
+	$(SWIFTNEST) upgrade --to $(PROFILE)
