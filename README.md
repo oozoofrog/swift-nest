@@ -194,35 +194,6 @@ In this model, `.ai-harness/state.json` becomes the continuity anchor for future
 - `testing-rules`
 - `logging-rules`
 
-## Optional Reference Docs
-
-You can optionally extract Apple-authored reference documents that are useful when refining harness rules.
-
-```bash
-make extract-xcode-docs XCODE_APP=/Applications/Xcode.app
-```
-
-Or:
-
-```bash
-python3 scripts/extract_xcode_reference_docs.py --xcode-app /Applications/Xcode.app
-```
-
-This export does not include assistant prompts or model/runtime metadata. It only curates:
-
-- `IDEIntelligenceChat.framework/Resources/AdditionalDocumentation/*.md`
-- A selected subset of Swift diagnostics documents related to concurrency and safety
-
-The output is written to `references/xcode-<version>-docs/` with this layout:
-
-- `apple-guides/`
-- `swift-diagnostics/`
-- `README.md`
-- `SUMMARY.md`
-- `MANIFEST.json`
-
-See [REFERENCE_UPDATE_NOTES.md](Docs/REFERENCE_UPDATE_NOTES.md) for the harness-facing changes derived from these references.
-
 ## Install Into an Existing iOS Repository
 
 This starter is designed to work both as a standalone template repository and as a source of harness files for an existing iOS repository.
@@ -325,7 +296,6 @@ python3 scripts/harness.py list-profiles
 python3 scripts/harness.py init --config my-project.yaml
 python3 scripts/harness.py render-context
 python3 scripts/harness.py upgrade --to intermediate
-python3 scripts/extract_xcode_reference_docs.py --xcode-app /Applications/Xcode.app
 ```
 
 ## Publish Your Own Copy

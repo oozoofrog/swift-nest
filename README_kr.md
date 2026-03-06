@@ -194,35 +194,6 @@ python3 scripts/harness.py init \
 - `testing-rules`
 - `logging-rules`
 
-## 선택적 참고 문서
-
-하네스 규칙을 보강할 때 참고할 수 있도록, Xcode에 포함된 Apple 문서만 별도로 추출할 수 있습니다.
-
-```bash
-make extract-xcode-docs XCODE_APP=/Applications/Xcode.app
-```
-
-또는:
-
-```bash
-python3 scripts/extract_xcode_reference_docs.py --xcode-app /Applications/Xcode.app
-```
-
-이 추출은 에이전트 프롬프트나 모델 메타데이터를 포함하지 않습니다. 대신 아래 두 문서군만 정리합니다.
-
-- `IDEIntelligenceChat.framework/Resources/AdditionalDocumentation/*.md`
-- Swift 동시성 및 안전성과 직접 관련된 Swift diagnostics 문서 일부
-
-출력은 `references/xcode-<version>-docs/` 아래에 생성됩니다.
-
-- `apple-guides/`
-- `swift-diagnostics/`
-- `README.md`
-- `SUMMARY.md`
-- `MANIFEST.json`
-
-이 참고 문서에서 실제 하네스에 반영한 내용은 [Docs/REFERENCE_UPDATE_NOTES.md](Docs/REFERENCE_UPDATE_NOTES.md) 에 정리되어 있습니다.
-
 ## 기존 iOS 저장소에 설치하기
 
 이 스타터는 독립 템플릿 저장소로도 쓸 수 있고, 이미 존재하는 iOS 저장소에 하네스 파일을 주입하는 소스로도 사용할 수 있습니다.
@@ -325,7 +296,6 @@ python3 scripts/harness.py list-profiles
 python3 scripts/harness.py init --config my-project.yaml
 python3 scripts/harness.py render-context
 python3 scripts/harness.py upgrade --to intermediate
-python3 scripts/extract_xcode_reference_docs.py --xcode-app /Applications/Xcode.app
 ```
 
 ## 자신의 사본 공개하기

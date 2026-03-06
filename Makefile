@@ -1,6 +1,5 @@
 PYTHON ?= python3
 CONFIG ?= my-project.yaml
-XCODE_APP ?= /Applications/Xcode.app
 
 list-skills:
 	$(PYTHON) scripts/harness.py list-skills
@@ -13,6 +12,3 @@ init:
 
 context:
 	$(PYTHON) scripts/harness.py render-context
-
-extract-xcode-docs:
-	$(PYTHON) scripts/extract_xcode_reference_docs.py --xcode-app "$(XCODE_APP)"
