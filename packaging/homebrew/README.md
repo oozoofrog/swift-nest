@@ -20,8 +20,8 @@ For the feature-to-release handoff sequence after work lands on `main`, see the 
 
    ```bash
    ./packaging/homebrew/render_formula.sh \
-     --tag v0.1.0 \
-     --archive /tmp/swift-nest-v0.1.0.tar.gz \
+     --tag v0.1.2 \
+     --archive /tmp/swift-nest-v0.1.2.tar.gz \
      --output /path/to/homebrew-swiftnest/Formula/swiftnest.rb
    ```
 
@@ -29,8 +29,8 @@ For the feature-to-release handoff sequence after work lands on `main`, see the 
 
    ```bash
    make render-homebrew-formula \
-     RELEASE_TAG=v0.1.0 \
-     RELEASE_ARCHIVE=/tmp/swift-nest-v0.1.0.tar.gz \
+     RELEASE_TAG=v0.1.2 \
+     RELEASE_ARCHIVE=/tmp/swift-nest-v0.1.2.tar.gz \
      FORMULA_OUTPUT=/path/to/homebrew-swiftnest/Formula/swiftnest.rb
    ```
 

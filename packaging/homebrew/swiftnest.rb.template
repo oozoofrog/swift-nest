@@ -116,9 +116,10 @@ class Swiftnest < Formula
 
   test do
     assert_match "ios-architecture", shell_output("#{bin}/swiftnest list-skills")
+    assert_match "개인 프로젝트", shell_output("SWIFTNEST_LANG=ko #{bin}/swiftnest list-profiles")
 
     target = testpath/"sample-repo"
-    system "#{bin}/swiftnest", "install", "--target", target
+    system "#{bin}/swiftnest", "--lang", "ko", "install", "--target", target
 
     assert_predicate target/"swiftnest", :exist?
     assert_predicate target/"profiles/advanced.yaml", :exist?
