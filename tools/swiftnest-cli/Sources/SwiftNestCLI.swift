@@ -695,8 +695,7 @@ enum SwiftNestCLI {
             )
         }
 
-        let requiresMigration = state.dataVersion < currentDataVersion
-        guard requiresMigration else {
+        guard state.dataVersion < currentDataVersion else {
             return
         }
 
@@ -743,11 +742,10 @@ enum SwiftNestCLI {
 
     static func currentWorkflowSet(repository: SwiftNestRepository) throws -> [String] {
         let availableNames = availableWorkflowNames(repository: repository)
+        try migrateRepositoryStateIfNeeded(repository: repository)
         guard repository.fileManager.fileExists(atPath: repository.stateFileURL.path) else {
             return defaultWorkflowNames.filter { availableNames.contains($0) }
         }
-
-        try migrateRepositoryStateIfNeeded(repository: repository)
         let state = try repository.loadState()
         return normalizedWorkflowNames(state.workflows).filter { availableNames.contains($0) }
     }

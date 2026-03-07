@@ -547,6 +547,41 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path))
     }
 
+    func testRunUpgradeMigratesLegacyStateBeforeApplyingTargetProfile() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let legacyRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: legacyRoot, assetRootURL: starterRoot)
+        let configURL = legacyRoot.appendingPathComponent("config/project.yaml")
+        try String(contentsOf: legacyRoot.appendingPathComponent("config/project.example.yaml"), encoding: .utf8)
+            .write(to: configURL, atomically: true, encoding: .utf8)
+        try fileManager.createDirectory(at: legacyRoot.appendingPathComponent(".ai-harness"), withIntermediateDirectories: true)
+        try """
+        {
+          "profile": "basic",
+          "skills": ["swiftui-rules"],
+          "workflows": ["add-feature", "fix-bug", "refactor", "build"],
+          "config_path": "config/project.yaml",
+          "context_path": ".ai-harness/rendered_context.md"
+        }
+        """.write(
+            to: legacyRoot.appendingPathComponent(".ai-harness/state.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        try SwiftNestCLI.runUpgrade(
+            parsed: ParsedArguments(values: ["--to": "advanced"], flags: [], positionals: []),
+            repository: repository
+        )
+
+        let state = try repository.loadState()
+        XCTAssertEqual(state.dataVersion, SwiftNestCLI.currentDataVersion)
+        XCTAssertEqual(state.profile, "advanced")
+        XCTAssertEqual(state.skills, ["ios-architecture", "swiftui-rules"])
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".ai-harness/rendered_context.md").path))
+    }
+
     func testLocateManagedRepositorySkipsStarterCheckoutEvenWhenAssetRootDiffers() throws {
         let assetRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
         let otherStarterRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
@@ -867,6 +902,79 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(process.terminationStatus, 1)
         XCTAssertTrue(stderr.contains("fake-build-stdout"))
         XCTAssertTrue(stderr.contains("fake-build-stderr"))
+    }
+
+    func testRootWrapperTimesOutWhileWaitingForBuildLock() throws {
+        let fileManager = FileManager.default
+        let fixtureRoot = fileManager.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: fixtureRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: fixtureRoot.appendingPathComponent("tools/swiftnest-cli/Sources", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        let wrapperSourceURL = repositoryRootURL().appendingPathComponent("swiftnest")
+        let wrapperURL = fixtureRoot.appendingPathComponent("swiftnest")
+        try fileManager.copyItem(at: wrapperSourceURL, to: wrapperURL)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wrapperURL.path)
+        try "// fixture\n".write(
+            to: fixtureRoot.appendingPathComponent("tools/swiftnest-cli/Package.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let lockDir = fixtureRoot.appendingPathComponent("tools/swiftnest-cli/.build/.swiftnest-build.lock", isDirectory: true)
+        try fileManager.createDirectory(at: lockDir, withIntermediateDirectories: true)
+
+        let sleeper = Process()
+        sleeper.executableURL = URL(fileURLWithPath: "/bin/sh")
+        sleeper.arguments = ["-c", "sleep 5"]
+        try sleeper.run()
+        defer {
+            if sleeper.isRunning {
+                sleeper.terminate()
+            }
+        }
+        try "\(sleeper.processIdentifier)\n".write(
+            to: lockDir.appendingPathComponent("pid"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let process = Process()
+        process.executableURL = wrapperURL
+        process.arguments = ["--help"]
+        process.currentDirectoryURL = fixtureRoot
+
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+        environment["SWIFTNEST_BUILD_LOCK_TIMEOUT_SECONDS"] = "1"
+        process.environment = environment
+
+        let stderrPipe = Pipe()
+        process.standardError = stderrPipe
+        process.standardOutput = Pipe()
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stderrData = try stderrPipe.fileHandleForReading.readToEnd() ?? Data()
+        let stderr = String(decoding: stderrData, as: UTF8.self)
+
+        XCTAssertEqual(process.terminationStatus, 1)
+        XCTAssertTrue(stderr.contains("Another SwiftNest CLI build is already in progress"))
+        XCTAssertTrue(stderr.contains("timed out waiting 1s for the SwiftNest CLI build lock"))
+    }
+
+    func testOnboardingReviewTemplateCoversExpandedConfigAuditFields() throws {
+        let templateURL = repositoryRootURL().appendingPathComponent("templates/Workflows/onboarding-review.md")
+        let template = try String(contentsOf: templateURL, encoding: .utf8)
+
+        XCTAssertTrue(template.contains("- `min_ios_version`"))
+        XCTAssertTrue(template.contains("- `package_manager`"))
+        XCTAssertTrue(template.contains("- `privacy_requirements`"))
+        XCTAssertTrue(template.contains("- `healthkit_layer_name`"))
     }
 
     func testRootMakefilePrefersLocalWrapperWhenAvailable() throws {
@@ -1233,7 +1341,11 @@ final class SwiftNestCLITests: XCTestCase {
 
             Keep `onboarding-review` available as the entry workflow for future onboarding refreshes.
 
-            Review config/project.yaml and the selected workflows.
+            Review config/project.yaml and audit:
+            - min_ios_version
+            - package_manager
+            - privacy_requirements
+            - healthkit_layer_name
             """,
         ]
 

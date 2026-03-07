@@ -23,11 +23,19 @@ Use this workflow immediately after SwiftNest onboarding to verify that the gene
 ## Config Audit
 Check these fields against the repository:
 - `project_name`
+- `optional_watchos_line`
 - `ui_framework`
 - `architecture_style`
+- `min_ios_version`
+- `package_manager`
+- `test_framework`
+- `lint_tools`
 - `network_layer_name`
 - `persistence_layer_name`
 - `logging_system`
+- `privacy_requirements`
+- `preferred_file_line_limit`
+- `healthkit_layer_name`
 - `build_command`
 - `test_command`
 

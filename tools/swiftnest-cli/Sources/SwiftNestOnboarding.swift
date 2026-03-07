@@ -570,10 +570,7 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingCurrentProfile, state.profile))
         print(SwiftNestLocalizer.text(.onboardingCurrentSkills, state.skills.joined(separator: ", ")))
         print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, workflows.joined(separator: ", ")))
-        if workflows.contains("onboarding-review") {
-            print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
-            print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
-        }
+        printOnboardingReviewFollowUpIfNeeded(workflows: workflows)
         print(SwiftNestLocalizer.text(.onboardingUseForceToRerun))
     }
 
@@ -604,12 +601,18 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingNextStepsHeader))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewConfig, configURL.path))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewAgents))
-        if result.workflows.contains("onboarding-review") {
-            print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
-            print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
-        }
+        printOnboardingReviewFollowUpIfNeeded(workflows: result.workflows)
         print(SwiftNestLocalizer.text(.onboardingNextStepAgentRoot, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
+    }
+
+    static func printOnboardingReviewFollowUpIfNeeded(workflows: [String]) {
+        guard normalizedWorkflowNames(workflows).contains("onboarding-review") else {
+            return
+        }
+
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
     }
 
     static func skillSummary(named skill: String, repository: SwiftNestRepository) -> String {

@@ -56,6 +56,29 @@ localized_wrapper_swift_required() {
   esac
 }
 
+localized_wrapper_build_lock_waiting() {
+  case "$(resolve_lang "$@")" in
+    ko)
+      printf '%s\n' 'SwiftNest CLI 빌드가 이미 진행 중이어서 완료될 때까지 기다리는 중입니다.'
+      ;;
+    *)
+      printf '%s\n' 'Another SwiftNest CLI build is already in progress; waiting for it to finish.'
+      ;;
+  esac
+}
+
+localized_wrapper_build_lock_timeout() {
+  timeout_seconds=$1
+  case "$(resolve_lang "$@")" in
+    ko)
+      printf '%s\n' "오류: SwiftNest CLI 빌드 락을 ${timeout_seconds}초 동안 기다렸지만 획득하지 못했습니다."
+      ;;
+    *)
+      printf '%s\n' "error: timed out waiting ${timeout_seconds}s for the SwiftNest CLI build lock."
+      ;;
+  esac
+}
+
 if ! command -v swift >/dev/null 2>&1; then
   localized_wrapper_swift_required "$@" >&2
   exit 1
@@ -116,6 +139,23 @@ resolve_build_jobs() {
   printf "%s\n" "$build_jobs"
 }
 
+resolve_build_lock_timeout_seconds() {
+  timeout_seconds=${SWIFTNEST_BUILD_LOCK_TIMEOUT_SECONDS:-300}
+  case "$timeout_seconds" in
+    ""|*[!0-9]*)
+      printf "%s\n" 300
+      return 0
+      ;;
+  esac
+
+  if [ "$timeout_seconds" -lt 1 ] 2>/dev/null; then
+    printf "%s\n" 300
+    return 0
+  fi
+
+  printf "%s\n" "$timeout_seconds"
+}
+
 BINARY_PATH=$(find_binary || true)
 if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
   cleanup_build_lock() {
@@ -129,6 +169,10 @@ if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
 
   acquire_build_lock() {
     wait_without_pid=0
+    wait_ticks=0
+    wait_announced=0
+    timeout_seconds=$(resolve_build_lock_timeout_seconds)
+    timeout_ticks=$((timeout_seconds * 5))
     mkdir -p "$BUILD_ROOT"
 
     while ! mkdir "$BUILD_LOCK_DIR" 2>/dev/null; do
@@ -158,6 +202,16 @@ if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
         fi
       fi
 
+      if [ "$wait_announced" -eq 0 ]; then
+        localized_wrapper_build_lock_waiting "$@" >&2
+        wait_announced=1
+      fi
+      wait_ticks=$((wait_ticks + 1))
+      if [ "$wait_ticks" -ge "$timeout_ticks" ]; then
+        localized_wrapper_build_lock_timeout "$timeout_seconds" "$@" >&2
+        exit 1
+      fi
+
       sleep 0.2
     done
 
@@ -171,7 +225,7 @@ if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
     trap - EXIT HUP INT TERM
   }
 
-  acquire_build_lock
+  acquire_build_lock "$@"
   BINARY_PATH=$(find_binary || true)
   if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
     BUILD_JOBS=$(resolve_build_jobs)
