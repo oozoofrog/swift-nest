@@ -206,6 +206,55 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "networking", "review"])
     }
 
+    func testOnboardPreservesExistingLegacyNamedPathsInTargetRepository() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("PreserveLegacyPaths-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("tools/swiftnest-cli/Sources", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try "# custom swiftnest\n".write(
+            to: targetRoot.appendingPathComponent("swiftnest"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "# custom harness\n".write(
+            to: targetRoot.appendingPathComponent("harness"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "struct CustomCLI {}\n".write(
+            to: targetRoot.appendingPathComponent("tools/swiftnest-cli/Sources/CustomCLI.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let parsed = ParsedArguments(
+            values: ["--target": targetRoot.path],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+
+        try SwiftNestCLI.runOnboard(parsed: parsed, repository: SwiftNestRepository(rootURL: starterRoot))
+
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent("swiftnest"), encoding: .utf8),
+            "# custom swiftnest\n"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent("harness"), encoding: .utf8),
+            "# custom harness\n"
+        )
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent("tools/swiftnest-cli/Sources/CustomCLI.swift").path
+            )
+        )
+    }
+
     func testOnboardRefreshesManagedTemplatesFromGlobalAssets() throws {
         let starterRoot = try makeRepositoryFixture()
         let targetRoot = try makeRepositoryFixture(includeOnboardingReviewTemplate: false)
@@ -373,7 +422,96 @@ final class SwiftNestCLITests: XCTestCase {
         )
     }
 
-    func testRenderContextAutoMigratesLegacyRepositoryAndRemovesRepoLocalCLI() throws {
+    func testInstallManagedFilesDoesNotDeleteLegacyNamedPaths() throws {
+        let fileManager = FileManager.default
+        let repositoryRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("InstallPreservesLegacy-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("tools/swiftnest-cli/Sources", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try "# user swiftnest\n".write(
+            to: targetRoot.appendingPathComponent("swiftnest"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "# user harness\n".write(
+            to: targetRoot.appendingPathComponent("harness"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "struct UserCLI {}\n".write(
+            to: targetRoot.appendingPathComponent("tools/swiftnest-cli/Sources/UserCLI.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        _ = try SwiftNestCLI.installManagedFiles(
+            into: targetRoot,
+            force: false,
+            dryRun: false,
+            repository: SwiftNestRepository(rootURL: repositoryRoot)
+        )
+
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent("swiftnest"), encoding: .utf8),
+            "# user swiftnest\n"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent("harness"), encoding: .utf8),
+            "# user harness\n"
+        )
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent("tools/swiftnest-cli/Sources/UserCLI.swift").path
+            )
+        )
+        XCTAssertTrue(
+            fileManager.fileExists(atPath: targetRoot.appendingPathComponent("templates/Docs/AI_RULES.md").path)
+        )
+    }
+
+    func testInstallManagedFilesLeavesTargetUnchangedWhenConflictsExist() throws {
+        let fileManager = FileManager.default
+        let repositoryRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("InstallConflict-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try "# conflicting makefile\n".write(
+            to: targetRoot.appendingPathComponent("Makefile"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "# custom swiftnest\n".write(
+            to: targetRoot.appendingPathComponent("swiftnest"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.installManagedFiles(
+                into: targetRoot,
+                force: false,
+                dryRun: false,
+                repository: SwiftNestRepository(rootURL: repositoryRoot)
+            )
+        )
+
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent("swiftnest"), encoding: .utf8),
+            "# custom swiftnest\n"
+        )
+        XCTAssertFalse(
+            fileManager.fileExists(atPath: targetRoot.appendingPathComponent("profiles/advanced.yaml").path)
+        )
+        XCTAssertFalse(
+            fileManager.fileExists(atPath: targetRoot.appendingPathComponent("templates/Docs/AI_RULES.md").path)
+        )
+    }
+
+    func testRenderContextAutoMigratesLegacyRepositoryWithoutRemovingRepoLocalCLI() throws {
         let fileManager = FileManager.default
         let starterRoot = try makeRepositoryFixture()
         let legacyRoot = try makeRepositoryFixture()
@@ -402,11 +540,32 @@ final class SwiftNestCLITests: XCTestCase {
 
         let migratedState = try repository.loadState()
         XCTAssertEqual(migratedState.dataVersion, SwiftNestCLI.currentDataVersion)
-        XCTAssertFalse(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("swiftnest").path))
-        XCTAssertFalse(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("harness").path))
-        XCTAssertFalse(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("tools/swiftnest-cli").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("swiftnest").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("harness").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("tools/swiftnest-cli").path))
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".ai-harness/rendered_context.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path))
+    }
+
+    func testLocateManagedRepositorySkipsStarterCheckoutEvenWhenAssetRootDiffers() throws {
+        let assetRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
+        let otherStarterRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
+
+        XCTAssertThrowsError(
+            try SwiftNestRepository.locateManagedRepository(
+                assetRootURL: assetRoot,
+                currentDirectoryPath: otherStarterRoot.path
+            )
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                "Could not locate a SwiftNest-managed repository root from the current directory."
+            )
+        }
     }
 
     func testOnboardRequiresTargetWhenOutsideRepositoryContext() throws {
@@ -557,6 +716,76 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(stdout.contains("fake-swiftnest-ran"))
         XCTAssertTrue(loggedArguments.contains("--jobs"))
         XCTAssertTrue(loggedArguments.contains("1"))
+    }
+
+    func testRootMakefilePrefersLocalWrapperWhenAvailable() throws {
+        let fileManager = FileManager.default
+        let fixtureRoot = fileManager.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: fixtureRoot, withIntermediateDirectories: true)
+
+        let makefileSourceURL = repositoryRootURL().appendingPathComponent("Makefile")
+        try fileManager.copyItem(at: makefileSourceURL, to: fixtureRoot.appendingPathComponent("Makefile"))
+
+        let invokedURL = fixtureRoot.appendingPathComponent("invoked.txt")
+        let wrapperURL = fixtureRoot.appendingPathComponent("swiftnest")
+        let wrapperScript = """
+        #!/bin/sh
+        printf '%s\\n' \"$0 $*\" > \"\(invokedURL.path)\"
+        """
+        try wrapperScript.write(to: wrapperURL, atomically: true, encoding: .utf8)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wrapperURL.path)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/make")
+        process.arguments = ["-f", "Makefile", "list-skills"]
+        process.currentDirectoryURL = fixtureRoot
+        process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+
+        try process.run()
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationStatus, 0)
+        let invocation = try String(contentsOf: invokedURL, encoding: .utf8)
+        XCTAssertTrue(invocation.contains("./swiftnest list-skills"))
+    }
+
+    func testRootMakefileFallsBackToGlobalCommandWhenLocalWrapperIsMissing() throws {
+        let fileManager = FileManager.default
+        let fixtureRoot = fileManager.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: fixtureRoot, withIntermediateDirectories: true)
+
+        let makefileSourceURL = repositoryRootURL().appendingPathComponent("Makefile")
+        try fileManager.copyItem(at: makefileSourceURL, to: fixtureRoot.appendingPathComponent("Makefile"))
+
+        let fakeBinDirectory = fixtureRoot.appendingPathComponent("fake-bin", isDirectory: true)
+        try fileManager.createDirectory(at: fakeBinDirectory, withIntermediateDirectories: true)
+        let invokedURL = fixtureRoot.appendingPathComponent("invoked-global.txt")
+        let globalCLIURL = fakeBinDirectory.appendingPathComponent("swiftnest")
+        let globalScript = """
+        #!/bin/sh
+        printf '%s\\n' \"$0 $*\" > \"\(invokedURL.path)\"
+        """
+        try globalScript.write(to: globalCLIURL, atomically: true, encoding: .utf8)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: globalCLIURL.path)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/make")
+        process.arguments = ["-f", "Makefile", "list-skills"]
+        process.currentDirectoryURL = fixtureRoot
+        process.environment = ["PATH": fakeBinDirectory.path + ":/usr/bin:/bin:/usr/sbin:/sbin"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+
+        try process.run()
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationStatus, 0)
+        let invocation = try String(contentsOf: invokedURL, encoding: .utf8)
+        XCTAssertTrue(invocation.contains("/swiftnest list-skills"))
     }
 
     func testRootWrapperNormalizesZeroPaddedBuildJobs() throws {

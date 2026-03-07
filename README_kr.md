@@ -151,7 +151,7 @@ swiftnest workflow scaffold permissions review
 권장 흐름:
 
 1. 새 저장소를 만들거나 빈 저장소 루트로 이동합니다.
-2. 이 스타터를 임시 디렉터리에 clone 합니다.
+2. 전역 `swiftnest` 명령이 설치되어 있고 `PATH` 에서 실행 가능한지 확인합니다.
 3. `onboard` 로 새 저장소에 SwiftNest를 설치하고 설정 및 문서 생성을 한 번에 진행합니다.
 4. `config/project.yaml` 과 생성된 `AGENTS.md` 를 검토합니다.
 5. 필요하다면 가벼운 프로필과 작은 스킬 세트로 온보딩을 다시 실행합니다.
@@ -164,8 +164,7 @@ mkdir MyNewApp
 cd MyNewApp
 git init
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard --target "$PWD"
+swiftnest onboard --target "$PWD"
 ```
 
 ### 2. 이미 존재하는 iOS 프로젝트 상태에 맞춰 하네스를 적용하는 경우
@@ -175,7 +174,7 @@ git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
 권장 흐름:
 
 1. 현재 프로젝트의 아키텍처, 프레임워크 사용, 권한 영역, 테스트 스타일을 먼저 확인합니다.
-2. 저장소 루트에 `onboard` 를 실행해서 SwiftNest 설치, 설정 기본값 생성, 문서 초기화를 함께 수행합니다.
+2. 전역 `swiftnest` 명령이 설치되어 있는지 확인한 뒤 저장소 루트에 `onboard` 를 실행해서 SwiftNest 설치, 설정 기본값 생성, 문서 초기화를 함께 수행합니다.
 3. 실제 프로젝트 상태를 반영하도록 `config/project.yaml` 을 검토합니다.
 4. 첫 후속 검토는 `.ai-harness/workflows/onboarding-review.md` 부터 시작합니다.
 5. 현재 코드베이스에 맞는 프로필, 스킬, 워크플로를 필요에 따라 명시합니다.
@@ -186,8 +185,7 @@ git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
 ```bash
 cd /path/to/existing-ios-repo
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard \
+swiftnest onboard \
   --target "$PWD" \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules \

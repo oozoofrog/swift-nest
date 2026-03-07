@@ -151,7 +151,7 @@ Use this when the repository is empty or when SwiftNest should exist before the 
 Recommended flow:
 
 1. Create the new repository or enter the empty repository root.
-2. Clone this starter to a temporary directory.
+2. Make sure the global `swiftnest` command is installed and available on `PATH`.
 3. Run `onboard` into the new repository so SwiftNest installs, creates config, and initializes docs in one flow.
 4. Review `config/project.yaml` and the generated `AGENTS.md`.
 5. Start with a light profile and a small skill set if you need to rerun onboarding with explicit options.
@@ -164,8 +164,7 @@ mkdir MyNewApp
 cd MyNewApp
 git init
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard --target "$PWD"
+swiftnest onboard --target "$PWD"
 ```
 
 ### 2. Apply the Harness to an Existing iOS Project
@@ -175,7 +174,7 @@ Use this when the app already exists and SwiftNest should reflect the current pr
 Recommended flow:
 
 1. Inspect the existing architecture, frameworks, permission surfaces, testing style, and naming conventions.
-2. Run `onboard` into the repository root so SwiftNest installs, infers config defaults, and initializes docs together.
+2. Make sure the global `swiftnest` command is installed and then run `onboard` into the repository root so SwiftNest installs, infers config defaults, and initializes docs together.
 3. Review `config/project.yaml` so it reflects the real project, not an aspiration.
 4. Start the first follow-up review from `.ai-harness/workflows/onboarding-review.md`.
 5. Choose the profile, skills, and workflows that match the current codebase when rerunning onboarding or init with explicit options.
@@ -186,8 +185,7 @@ Example:
 ```bash
 cd /path/to/existing-ios-repo
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard \
+swiftnest onboard \
   --target "$PWD" \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules \

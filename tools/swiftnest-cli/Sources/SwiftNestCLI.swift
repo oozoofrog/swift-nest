@@ -78,7 +78,6 @@ struct SwiftNestRepository {
         "profiles",
         "templates",
     ]
-    static let legacyManagedPaths: [String] = ["swiftnest", "harness", "tools/swiftnest-cli"]
 
     let rootURL: URL
     let assetRootURL: URL
@@ -95,8 +94,8 @@ struct SwiftNestRepository {
     var stateDirectoryURL: URL { rootURL.appendingPathComponent(".ai-harness", isDirectory: true) }
     var stateFileURL: URL { stateDirectoryURL.appendingPathComponent("state.json") }
     var isStarterCheckout: Bool {
-        rootURL.standardizedFileURL.path == assetRootURL.standardizedFileURL.path
-            && fileManager.fileExists(atPath: rootURL.appendingPathComponent("packaging/homebrew/swiftnest.rb.template").path)
+        fileManager.fileExists(atPath: rootURL.appendingPathComponent("packaging/homebrew/swiftnest.rb.template").path)
+            && fileManager.fileExists(atPath: rootURL.appendingPathComponent("tools/swiftnest-cli/Package.swift").path)
     }
 
     static func locateAssetRoot() throws -> URL {
@@ -297,7 +296,6 @@ enum SwiftNestCLI {
                 return
             }
             let repository = try SwiftNestRepository.locateManagedRepository(assetRootURL: assetRootURL)
-            try migrateRepositoryInstallationIfNeeded(repository: repository)
             try runInit(parsed: parsed, repository: repository)
         case "upgrade":
             let parsed = try parse(remaining, valueOptions: ["--to"], flagOptions: ["--help", "-h"])
@@ -669,38 +667,8 @@ enum SwiftNestCLI {
         try (skills.joined(separator: "\n") + "\n").write(to: selectedSkillsURL, atomically: true, encoding: .utf8)
     }
 
-    static func hasLegacyManagedArtifacts(repository: SwiftNestRepository) -> Bool {
-        SwiftNestRepository.legacyManagedPaths.contains { legacyPath in
-            repository.fileManager.fileExists(atPath: repository.rootURL.appendingPathComponent(legacyPath).path)
-        }
-    }
-
-    @discardableResult
-    static func cleanupLegacyManagedArtifacts(repository: SwiftNestRepository, dryRun: Bool) throws -> Int {
-        var removed = 0
-        for legacyPath in SwiftNestRepository.legacyManagedPaths {
-            let legacyURL = repository.rootURL.appendingPathComponent(legacyPath)
-            guard repository.fileManager.fileExists(atPath: legacyURL.path) else {
-                continue
-            }
-            removed += 1
-            if !dryRun {
-                try repository.fileManager.removeItem(at: legacyURL)
-            }
-        }
-        return removed
-    }
-
-    static func migrateRepositoryInstallationIfNeeded(repository: SwiftNestRepository) throws {
-        guard hasLegacyManagedArtifacts(repository: repository) else {
-            return
-        }
-        _ = try installManagedFiles(into: repository.rootURL, force: true, dryRun: false, repository: repository)
-    }
-
     static func migrateRepositoryStateIfNeeded(repository: SwiftNestRepository) throws {
         guard repository.fileManager.fileExists(atPath: repository.stateFileURL.path) else {
-            try migrateRepositoryInstallationIfNeeded(repository: repository)
             return
         }
 
@@ -711,7 +679,7 @@ enum SwiftNestCLI {
             )
         }
 
-        let requiresMigration = state.dataVersion < currentDataVersion || hasLegacyManagedArtifacts(repository: repository)
+        let requiresMigration = state.dataVersion < currentDataVersion
         guard requiresMigration else {
             return
         }
@@ -1019,9 +987,7 @@ enum SwiftNestCLI {
         var copied = 0
         var unchanged = 0
         var conflicts: [String] = []
-        let targetRepository = SwiftNestRepository(rootURL: targetURL, assetRootURL: repository.assetRootURL)
-
-        _ = try cleanupLegacyManagedArtifacts(repository: targetRepository, dryRun: dryRun)
+        var pendingCopies: [(sourceURL: URL, destinationURL: URL, relativePath: String, overwritesExisting: Bool)] = []
 
         for (sourceURL, relativePath) in try iterManagedFiles(repository: repository) {
             let destinationURL = targetURL.appendingPathComponent(relativePath)
@@ -1041,26 +1007,40 @@ enum SwiftNestCLI {
                 }
             }
 
-            if dryRun {
-                let actionMessage = fileManager.fileExists(atPath: destinationURL.path)
-                    ? SwiftNestLocalizer.text(.dryRunOverwrite, relativePath)
-                    : SwiftNestLocalizer.text(.dryRunCopy, relativePath)
-                print(actionMessage)
-                copied += 1
-                continue
-            }
-
-            try fileManager.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            if fileManager.fileExists(atPath: destinationURL.path) {
-                try fileManager.removeItem(at: destinationURL)
-            }
-            try fileManager.copyItem(at: sourceURL, to: destinationURL)
-            copied += 1
+            pendingCopies.append(
+                (
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL,
+                    relativePath: relativePath,
+                    overwritesExisting: fileManager.fileExists(atPath: destinationURL.path)
+                )
+            )
         }
 
         if !conflicts.isEmpty {
             let joined = conflicts.map { "- \($0)" }.joined(separator: "\n")
             throw SwiftNestError(SwiftNestLocalizer.text(.refusingOverwriteManagedFiles, joined))
+        }
+
+        for operation in pendingCopies {
+            if dryRun {
+                let actionMessage = operation.overwritesExisting
+                    ? SwiftNestLocalizer.text(.dryRunOverwrite, operation.relativePath)
+                    : SwiftNestLocalizer.text(.dryRunCopy, operation.relativePath)
+                print(actionMessage)
+                copied += 1
+                continue
+            }
+
+            try fileManager.createDirectory(
+                at: operation.destinationURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            if operation.overwritesExisting {
+                try fileManager.removeItem(at: operation.destinationURL)
+            }
+            try fileManager.copyItem(at: operation.sourceURL, to: operation.destinationURL)
+            copied += 1
         }
 
         return (copied, unchanged)

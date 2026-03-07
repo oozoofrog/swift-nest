@@ -85,7 +85,7 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingStarterPath, status.starterRootURL.path))
         print(SwiftNestLocalizer.text(.onboardingTargetPath, status.targetRootURL.path))
 
-        if !status.targetAlreadyManaged {
+        if !status.targetAlreadyManaged || parsed.contains("--force") {
             let installResult = try installManagedFiles(
                 into: status.targetRootURL,
                 force: parsed.contains("--force"),
@@ -102,7 +102,6 @@ extension SwiftNestCLI {
         }
 
         let targetRepository = SwiftNestRepository(rootURL: status.targetRootURL, assetRootURL: repository.assetRootURL)
-        try migrateRepositoryInstallationIfNeeded(repository: targetRepository)
         let configCreated = try ensureOnboardingConfig(
             at: status.configURL,
             repository: targetRepository,
