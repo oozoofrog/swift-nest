@@ -106,6 +106,47 @@ final class SwiftNestCLITests: XCTestCase {
         )
     }
 
+    func testListProfileSummariesUseEnglishDescriptionsByDefault() throws {
+        let summaries = try SwiftNestCLI.listProfileSummaries(
+            repository: SwiftNestRepository(rootURL: try makeRepositoryFixture()),
+            language: .en
+        )
+
+        XCTAssertEqual(
+            summaries,
+            [
+                "advanced: Strict setup for complex apps and long-lived codebases.",
+                "basic: Minimal setup for solo projects and MVPs.",
+                "intermediate: Balanced setup for product development.",
+            ]
+        )
+    }
+
+    func testListProfileSummariesUseKoreanDescriptionsWhenAvailable() throws {
+        let summaries = try SwiftNestCLI.listProfileSummaries(
+            repository: SwiftNestRepository(rootURL: try makeRepositoryFixture()),
+            language: .ko
+        )
+
+        XCTAssertEqual(
+            summaries,
+            [
+                "advanced: 복잡한 앱과 장기 운영 코드베이스에 맞춘 엄격한 구성입니다.",
+                "basic: 개인 프로젝트와 MVP에 맞춘 최소 구성입니다.",
+                "intermediate: 제품 개발에 균형 있게 맞춘 구성입니다.",
+            ]
+        )
+    }
+
+    func testLocalizedProfileDescriptionFallsBackToEnglishWhenKoreanValueMissing() {
+        let values: [String: Any] = ["description": "English only"]
+
+        XCTAssertEqual(
+            SwiftNestCLI.localizedProfileDescription(from: values, language: .ko),
+            "English only"
+        )
+    }
+
     func testRootWrapperUsesKoreanErrorWhenSwiftIsMissing() throws {
         let wrapperURL = repositoryRootURL().appendingPathComponent("swiftnest")
         let emptyBinDirectory = FileManager.default.temporaryDirectory
@@ -179,10 +220,35 @@ final class SwiftNestCLITests: XCTestCase {
             "tools/swiftnest-cli/Sources/main.swift",
             "tools/swiftnest-cli/Tests/SwiftNestCLITests/SwiftNestCLITests.swift",
         ]
+        let fileContents: [String: String] = [
+            "profiles/advanced.yaml": """
+            name: advanced
+            description: Strict setup for complex apps and long-lived codebases.
+            description_ko: 복잡한 앱과 장기 운영 코드베이스에 맞춘 엄격한 구성입니다.
+            default_skills:
+              - ios-architecture
+            """,
+            "profiles/basic.yaml": """
+            name: basic
+            description: Minimal setup for solo projects and MVPs.
+            description_ko: 개인 프로젝트와 MVP에 맞춘 최소 구성입니다.
+            default_skills:
+              - ios-architecture
+            """,
+            "profiles/intermediate.yaml": """
+            name: intermediate
+            description: Balanced setup for product development.
+            description_ko: 제품 개발에 균형 있게 맞춘 구성입니다.
+            default_skills:
+              - ios-architecture
+            """,
+        ]
+
         for filePath in filePaths {
             let destinationURL = root.appendingPathComponent(filePath)
             try fileManager.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try "fixture".write(to: destinationURL, atomically: true, encoding: .utf8)
+            let contents = fileContents[filePath] ?? "fixture"
+            try contents.write(to: destinationURL, atomically: true, encoding: .utf8)
         }
 
         return root

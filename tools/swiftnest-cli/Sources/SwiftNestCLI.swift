@@ -461,10 +461,35 @@ enum SwiftNestCLI {
     }
 
     static func runListProfiles(repository: SwiftNestRepository) throws {
-        for profileURL in try repository.availableProfiles() {
+        for summary in try listProfileSummaries(repository: repository) {
+            print(summary)
+        }
+    }
+
+    static func listProfileSummaries(
+        repository: SwiftNestRepository,
+        language: SwiftNestLanguage = SwiftNestLocalizer.activeLanguage
+    ) throws -> [String] {
+        try repository.availableProfiles().map { profileURL in
             let data = try HarnessDocumentLoader.loadObject(at: profileURL)
-            let description = HarnessDocumentLoader.string(data, key: "description", default: "")
-            print("\(profileURL.deletingPathExtension().lastPathComponent): \(description)")
+            let description = localizedProfileDescription(from: data, language: language)
+            return "\(profileURL.deletingPathExtension().lastPathComponent): \(description)"
+        }
+    }
+
+    static func localizedProfileDescription(
+        from values: [String: Any],
+        language: SwiftNestLanguage = SwiftNestLocalizer.activeLanguage
+    ) -> String {
+        switch language {
+        case .ko:
+            let koreanDescription = HarnessDocumentLoader.string(values, key: "description_ko", default: "")
+            if !koreanDescription.isEmpty {
+                return koreanDescription
+            }
+            return HarnessDocumentLoader.string(values, key: "description", default: "")
+        case .en:
+            return HarnessDocumentLoader.string(values, key: "description", default: "")
         }
     }
 
