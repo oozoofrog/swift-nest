@@ -71,6 +71,29 @@ test -f config/project.yaml || cp config/project.example.yaml config/project.yam
 
 첫 실행 시 `tools/swiftnest-cli/.build/` 아래에 로컬 Swift 바이너리를 빌드합니다. 다른 저장소에 SwiftNest를 설치하는 것이 목적이라면, 스타터 체크아웃 안에서 `./swiftnest init` 를 실행하면 안 됩니다.
 
+## Homebrew 패키징
+
+SwiftNest는 별도 tap 저장소(예: `oozoofrog/homebrew-swiftnest`)에서 사용할 Homebrew 패키징 자산을 `packaging/homebrew/` 아래에 함께 제공합니다.
+
+권장 릴리즈 흐름:
+
+1. 이 저장소에서 Git tag를 만들고 push 합니다.
+2. 해당 tag의 source archive SHA256을 계산합니다.
+3. `packaging/homebrew/render_formula.sh` 로 `packaging/homebrew/swiftnest.rb.template` 를 tap 저장소의 `Formula/swiftnest.rb` 로 렌더링합니다.
+4. tap 저장소를 공개하거나 갱신합니다.
+
+tap 이 공개된 이후 기대하는 설치 흐름은 아래와 같습니다.
+
+```bash
+brew tap oozoofrog/swiftnest https://github.com/oozoofrog/homebrew-swiftnest
+brew install swiftnest
+swiftnest install --target /path/to/current-ios-repo
+```
+
+Homebrew로 설치된 전역 `swiftnest` 는 bootstrap 용도에 맞춰 설계됩니다. 현재 디렉터리에 repo-local `./swiftnest` 가 이미 있다면, tap wrapper 는 그 로컬 엔트리포인트로 위임해서 이후 명령이 계속 저장소 복사본을 기준으로 실행되게 해야 합니다.
+
+repo-local `./swiftnest` 스크립트는 첫 실행 시 여전히 로컬 macOS Swift 바이너리를 빌드하므로, 대상 저장소에서도 macOS Swift toolchain 이 필요합니다.
+
 ## 빠른 시작
 
 이 섹션은 현재 저장소에 이미 하네스 관리 파일이 들어 있고, macOS Swift toolchain 을 사용할 수 있다고 가정합니다.
@@ -216,6 +239,7 @@ profiles/
 templates/
 tools/swiftnest-cli/Package.swift
 tools/swiftnest-cli/Sources/
+tools/swiftnest-cli/Tests/
 ```
 
 대상 저장소에 같은 경로의 파일이 이미 있고 내용이 다르면, `--force` 없이는 설치가 중단됩니다.

@@ -70,6 +70,7 @@ struct SwiftNestRepository {
         "templates",
         "tools/swiftnest-cli/Package.swift",
         "tools/swiftnest-cli/Sources",
+        "tools/swiftnest-cli/Tests",
     ]
 
     let rootURL: URL
@@ -854,6 +855,8 @@ enum SwiftNestCLI {
 
     static func iterManagedFiles(repository: SwiftNestRepository) throws -> [(URL, String)] {
         var files: [(URL, String)] = []
+        let resolvedRootURL = repository.rootURL.resolvingSymlinksInPath().standardizedFileURL
+
         for relativePath in SwiftNestRepository.managedPaths {
             let sourceURL = repository.rootURL.appendingPathComponent(relativePath)
             var isDirectory: ObjCBool = false
@@ -861,11 +864,14 @@ enum SwiftNestCLI {
                 throw SwiftNestError("Managed path is missing from starter: \(relativePath)")
             }
             if isDirectory.boolValue {
-                let enumerator = repository.fileManager.enumerator(at: sourceURL, includingPropertiesForKeys: [.isRegularFileKey])
+                let enumerator = repository.fileManager.enumerator(
+                    at: sourceURL.resolvingSymlinksInPath(),
+                    includingPropertiesForKeys: [.isRegularFileKey]
+                )
                 while let fileURL = enumerator?.nextObject() as? URL {
                     let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
                     if resourceValues.isRegularFile == true {
-                        let relativeURL = fileURL.path.replacingOccurrences(of: repository.rootURL.path + "/", with: "")
+                        let relativeURL = try relativeManagedPath(for: fileURL, relativeTo: resolvedRootURL)
                         files.append((fileURL, relativeURL))
                     }
                 }
@@ -874,6 +880,19 @@ enum SwiftNestCLI {
             }
         }
         return files.sorted { $0.1 < $1.1 }
+    }
+
+    static func relativeManagedPath(for fileURL: URL, relativeTo rootURL: URL) throws -> String {
+        let resolvedFileURL = fileURL.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedRootURL = rootURL.resolvingSymlinksInPath().standardizedFileURL
+        let rootPath = resolvedRootURL.path.hasSuffix("/") ? resolvedRootURL.path : resolvedRootURL.path + "/"
+        let filePath = resolvedFileURL.path
+
+        guard filePath.hasPrefix(rootPath) else {
+            throw SwiftNestError("Managed path escaped repository root: \(fileURL.path)")
+        }
+
+        return String(filePath.dropFirst(rootPath.count))
     }
 
     static func filesMatch(_ lhs: URL, _ rhs: URL) throws -> Bool {

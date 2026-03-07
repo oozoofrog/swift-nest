@@ -71,6 +71,29 @@ test -f config/project.yaml || cp config/project.example.yaml config/project.yam
 
 The first invocation builds a local Swift binary under `tools/swiftnest-cli/.build/`. Do not run `./swiftnest init` inside the starter checkout when the goal is to install SwiftNest into another repository.
 
+## Homebrew Packaging
+
+SwiftNest ships Homebrew packaging assets under `packaging/homebrew/` for a separate tap repository such as `oozoofrog/homebrew-swiftnest`.
+
+Recommended release flow:
+
+1. Create and push a Git tag from this repository.
+2. Download the tagged source archive and compute its SHA256.
+3. Render `packaging/homebrew/swiftnest.rb.template` into the tap repository as `Formula/swiftnest.rb` with `packaging/homebrew/render_formula.sh`.
+4. Publish or update the tap repository.
+
+Once the tap is published, the intended install flow is:
+
+```bash
+brew tap oozoofrog/swiftnest https://github.com/oozoofrog/homebrew-swiftnest
+brew install swiftnest
+swiftnest install --target /path/to/current-ios-repo
+```
+
+The Homebrew-installed `swiftnest` command is bootstrap-oriented. When the current directory already contains a repo-local `./swiftnest`, the tap wrapper should delegate to that local entrypoint so follow-up commands continue to run against the repository copy.
+
+The repo-local `./swiftnest` script still builds a local macOS Swift binary on first use, so the target repository continues to require the macOS Swift toolchain.
+
 ## Quick Start
 
 This section assumes the current repository already contains the SwiftNest-managed files and that the macOS Swift toolchain is available.
@@ -216,6 +239,7 @@ profiles/
 templates/
 tools/swiftnest-cli/Package.swift
 tools/swiftnest-cli/Sources/
+tools/swiftnest-cli/Tests/
 ```
 
 If a managed file already exists in the target repository with different contents, the installer stops unless you pass `--force`.

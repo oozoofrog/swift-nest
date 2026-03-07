@@ -1,0 +1,57 @@
+class Swiftnest < Formula
+  desc "Bootstrap SwiftNest into iOS and SwiftUI repositories"
+  homepage "https://github.com/oozoofrog/swift-nest"
+  url "https://github.com/oozoofrog/swift-nest/archive/refs/tags/__SWIFTNEST_RELEASE_TAG__.tar.gz"
+  version "__SWIFTNEST_RELEASE_TAG__"
+  sha256 "__SWIFTNEST_RELEASE_SHA256__"
+
+  def install
+    libexec.install "Makefile", "swiftnest", "harness", "templates", "profiles"
+    (libexec/"config").install "config/project.example.yaml"
+    (libexec/"tools/swiftnest-cli").install "tools/swiftnest-cli/Package.swift", "tools/swiftnest-cli/Sources", "tools/swiftnest-cli/Tests"
+
+    system "swift", "build",
+           "--package-path", libexec/"tools/swiftnest-cli",
+           "-c", "release",
+           "--product", "swiftnest"
+
+    (libexec/"bin").install libexec/"tools/swiftnest-cli/.build/release/swiftnest"
+
+    (bin/"swiftnest").write <<~EOS
+      #!/bin/bash
+      set -euo pipefail
+
+      local_swiftnest="$PWD/swiftnest"
+      if [[ -x "$local_swiftnest" ]]; then
+        exec "$local_swiftnest" "$@"
+      fi
+
+      case "${1:-}" in
+        ""|-h|--help|help|install|list-skills|list-profiles)
+          export SWIFTNEST_ROOT="#{libexec}"
+          exec "#{libexec}/bin/swiftnest" "$@"
+          ;;
+      esac
+
+      cat >&2 <<'ERROR'
+error: the Homebrew-installed swiftnest command only bootstraps repositories.
+Run 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository.
+ERROR
+      exit 1
+    EOS
+    chmod 0555, bin/"swiftnest"
+  end
+
+  test do
+    assert_match "ios-architecture", shell_output("#{bin}/swiftnest list-skills")
+
+    target = testpath/"sample-repo"
+    system "#{bin}/swiftnest", "install", "--target", target
+
+    assert_predicate target/"swiftnest", :exist?
+    assert_predicate target/"profiles/advanced.yaml", :exist?
+    assert_predicate target/"templates/Docs/AI_RULES.md", :exist?
+    assert_predicate target/"tools/swiftnest-cli/Sources/SwiftNestCLI.swift", :exist?
+    assert_predicate target/"tools/swiftnest-cli/Tests/SwiftNestCLITests/SwiftNestCLITests.swift", :exist?
+  end
+end

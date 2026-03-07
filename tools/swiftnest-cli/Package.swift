@@ -15,5 +15,10 @@ let package = Package(
             name: "SwiftNestCLI",
             path: "Sources"
         ),
+        .testTarget(
+            name: "SwiftNestCLITests",
+            dependencies: ["SwiftNestCLI"],
+            path: "Tests"
+        ),
     ]
 )
