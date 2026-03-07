@@ -59,12 +59,40 @@ class Swiftnest < Formula
         printf 'en'
       }
 
+      first_non_lang_arg() {
+        local pending_lang_value=0
+
+        for arg in "$@"; do
+          if [[ "$pending_lang_value" -eq 1 ]]; then
+            pending_lang_value=0
+            continue
+          fi
+
+          case "$arg" in
+            --lang)
+              pending_lang_value=1
+              continue
+              ;;
+            --lang=*)
+              continue
+              ;;
+          esac
+
+          printf '%s' "$arg"
+          return 0
+        done
+
+        return 0
+      }
+
       local_swiftnest="$PWD/swiftnest"
       if [[ -x "$local_swiftnest" ]]; then
         exec "$local_swiftnest" "$@"
       fi
 
-      case "${1:-}" in
+      command_name="$(first_non_lang_arg "$@")"
+
+      case "$command_name" in
         ""|-h|--help|help|install|list-skills|list-profiles)
           export SWIFTNEST_ROOT="#{libexec}"
           exec "#{libexec}/bin/swiftnest" "$@"
