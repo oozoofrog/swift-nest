@@ -22,6 +22,8 @@ struct SwiftNestWorkflowDefinition {
             return SwiftNestLocalizer.text(.workflowDescriptionNetworking, language: language)
         case "review":
             return SwiftNestLocalizer.text(.workflowDescriptionReview, language: language)
+        case "onboarding-review":
+            return SwiftNestLocalizer.text(.workflowDescriptionOnboardingReview, language: language)
         default:
             return description
         }
@@ -30,7 +32,8 @@ struct SwiftNestWorkflowDefinition {
 
 extension SwiftNestCLI {
     static let defaultWorkflowNames = ["add-feature", "fix-bug", "refactor", "build"]
-    static let optionalWorkflowNames = ["permissions", "networking", "review"]
+    static let optionalWorkflowNames = ["onboarding-review", "permissions", "networking", "review"]
+    static let defaultOnboardingWorkflowNames = normalizedWorkflowNames(defaultWorkflowNames + ["onboarding-review"])
 
     static let workflowDefinitions: [String: SwiftNestWorkflowDefinition] = {
         let definitions = [
@@ -59,6 +62,12 @@ extension SwiftNestCLI {
                 isDefault: true
             ),
             SwiftNestWorkflowDefinition(
+                name: "onboarding-review",
+                description: "Use after onboarding to verify config, selected skills, and workflows against the real repository.",
+                templatePath: "Workflows/onboarding-review.md",
+                isDefault: false
+            ),
+            SwiftNestWorkflowDefinition(
                 name: "permissions",
                 description: "Use when device authorization states are part of the task.",
                 templatePath: "Workflows/permissions.md",
@@ -83,6 +92,22 @@ extension SwiftNestCLI {
 
     static func orderedWorkflowDefinitions() -> [SwiftNestWorkflowDefinition] {
         (defaultWorkflowNames + optionalWorkflowNames).compactMap { workflowDefinitions[$0] }
+    }
+
+    static func workflowTemplateExists(named name: String, repository: SwiftNestRepository) -> Bool {
+        guard let definition = workflowDefinitions[name] else {
+            return false
+        }
+        let templateURL = repository.templatesURL.appendingPathComponent(definition.templatePath)
+        return repository.fileManager.fileExists(atPath: templateURL.path)
+    }
+
+    static func availableWorkflowDefinitions(repository: SwiftNestRepository) -> [SwiftNestWorkflowDefinition] {
+        orderedWorkflowDefinitions().filter { workflowTemplateExists(named: $0.name, repository: repository) }
+    }
+
+    static func availableWorkflowNames(repository: SwiftNestRepository) -> Set<String> {
+        Set(availableWorkflowDefinitions(repository: repository).map(\.name))
     }
 
     static func normalizedWorkflowNames(_ workflows: [String]) -> [String] {
@@ -205,7 +230,7 @@ extension SwiftNestCLI {
         for definition in orderedWorkflowDefinitions() {
             let outputURL = outputDirectoryURL.appendingPathComponent("\(definition.name).md")
             if repository.fileManager.fileExists(atPath: outputURL.path) {
-                try? repository.fileManager.removeItem(at: outputURL)
+                try repository.fileManager.removeItem(at: outputURL)
             }
         }
 

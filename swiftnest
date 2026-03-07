@@ -3,6 +3,10 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 TOOL_ROOT="$SCRIPT_DIR/tools/swiftnest-cli"
+BUILD_ROOT="$TOOL_ROOT/.build"
+BUILD_LOCK_DIR="$BUILD_ROOT/.swiftnest-build.lock"
+BUILD_LOCK_PID_FILE="$BUILD_LOCK_DIR/pid"
+BUILD_LOCK_HELD=0
 
 resolve_lang() {
   explicit_lang=""
@@ -52,6 +56,29 @@ localized_wrapper_swift_required() {
   esac
 }
 
+localized_wrapper_build_lock_waiting() {
+  case "$(resolve_lang "$@")" in
+    ko)
+      printf '%s\n' 'SwiftNest CLI 빌드가 이미 진행 중이어서 완료될 때까지 기다리는 중입니다.'
+      ;;
+    *)
+      printf '%s\n' 'Another SwiftNest CLI build is already in progress; waiting for it to finish.'
+      ;;
+  esac
+}
+
+localized_wrapper_build_lock_timeout() {
+  timeout_seconds=$1
+  case "$(resolve_lang "$@")" in
+    ko)
+      printf '%s\n' "오류: SwiftNest CLI 빌드 락을 ${timeout_seconds}초 동안 기다렸지만 획득하지 못했습니다."
+      ;;
+    *)
+      printf '%s\n' "error: timed out waiting ${timeout_seconds}s for the SwiftNest CLI build lock."
+      ;;
+  esac
+}
+
 if ! command -v swift >/dev/null 2>&1; then
   localized_wrapper_swift_required "$@" >&2
   exit 1
@@ -91,12 +118,130 @@ needs_build() {
   return 1
 }
 
+resolve_build_jobs() {
+  build_jobs=${SWIFTNEST_BUILD_JOBS:-1}
+  case "$build_jobs" in
+    ""|*[!0-9]*)
+      printf "%s\n" 1
+      return 0
+      ;;
+  esac
+
+  while [ "${build_jobs#0}" != "$build_jobs" ]; do
+    build_jobs=${build_jobs#0}
+  done
+
+  if [ -z "$build_jobs" ] || [ "$build_jobs" -lt 1 ] 2>/dev/null; then
+    printf "%s\n" 1
+    return 0
+  fi
+
+  printf "%s\n" "$build_jobs"
+}
+
+resolve_build_lock_timeout_seconds() {
+  timeout_seconds=${SWIFTNEST_BUILD_LOCK_TIMEOUT_SECONDS:-300}
+  case "$timeout_seconds" in
+    ""|*[!0-9]*)
+      printf "%s\n" 300
+      return 0
+      ;;
+  esac
+
+  if [ "$timeout_seconds" -lt 1 ] 2>/dev/null; then
+    printf "%s\n" 300
+    return 0
+  fi
+
+  printf "%s\n" "$timeout_seconds"
+}
+
 BINARY_PATH=$(find_binary || true)
 if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
-  swift build --package-path "$TOOL_ROOT" -c release --product swiftnest >/dev/null
-  BINARY_PATH=$(find_binary)
+  cleanup_build_lock() {
+    if [ "${BUILD_LOCK_HELD:-0}" -ne 1 ]; then
+      return 0
+    fi
+    rm -f "$BUILD_LOCK_PID_FILE"
+    rmdir "$BUILD_LOCK_DIR" 2>/dev/null || true
+    BUILD_LOCK_HELD=0
+  }
+
+  acquire_build_lock() {
+    wait_without_pid=0
+    wait_ticks=0
+    wait_announced=0
+    timeout_seconds=$(resolve_build_lock_timeout_seconds)
+    timeout_ticks=$((timeout_seconds * 5))
+    mkdir -p "$BUILD_ROOT"
+
+    while ! mkdir "$BUILD_LOCK_DIR" 2>/dev/null; do
+      if [ -f "$BUILD_LOCK_PID_FILE" ]; then
+        lock_pid=$(head -n 1 "$BUILD_LOCK_PID_FILE" 2>/dev/null || true)
+        case "$lock_pid" in
+          ""|*[!0-9]*)
+            rm -f "$BUILD_LOCK_PID_FILE"
+            rmdir "$BUILD_LOCK_DIR" 2>/dev/null || true
+            wait_without_pid=0
+            continue
+            ;;
+        esac
+
+        if ! kill -0 "$lock_pid" 2>/dev/null; then
+          rm -f "$BUILD_LOCK_PID_FILE"
+          rmdir "$BUILD_LOCK_DIR" 2>/dev/null || true
+          wait_without_pid=0
+          continue
+        fi
+      else
+        wait_without_pid=$((wait_without_pid + 1))
+        if [ "$wait_without_pid" -ge 5 ]; then
+          rmdir "$BUILD_LOCK_DIR" 2>/dev/null || true
+          wait_without_pid=0
+          continue
+        fi
+      fi
+
+      if [ "$wait_announced" -eq 0 ]; then
+        localized_wrapper_build_lock_waiting "$@" >&2
+        wait_announced=1
+      fi
+      wait_ticks=$((wait_ticks + 1))
+      if [ "$wait_ticks" -ge "$timeout_ticks" ]; then
+        localized_wrapper_build_lock_timeout "$timeout_seconds" "$@" >&2
+        exit 1
+      fi
+
+      sleep 0.2
+    done
+
+    printf '%s\n' "$$" > "$BUILD_LOCK_PID_FILE"
+    BUILD_LOCK_HELD=1
+    trap 'cleanup_build_lock' EXIT HUP INT TERM
+  }
+
+  release_build_lock() {
+    cleanup_build_lock
+    trap - EXIT HUP INT TERM
+  }
+
+  acquire_build_lock "$@"
+  BINARY_PATH=$(find_binary || true)
+  if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
+    BUILD_JOBS=$(resolve_build_jobs)
+    BUILD_LOG=$(mktemp "${TMPDIR:-/tmp}/swiftnest-build.XXXXXX")
+    if ! swift build --package-path "$TOOL_ROOT" -c release --jobs "$BUILD_JOBS" --product swiftnest >"$BUILD_LOG" 2>&1; then
+      cat "$BUILD_LOG" >&2
+      rm -f "$BUILD_LOG"
+      exit 1
+    fi
+    rm -f "$BUILD_LOG"
+    BINARY_PATH=$(find_binary)
+  fi
+  release_build_lock
 fi
 
+export SWIFTNEST_ASSET_ROOT="$SCRIPT_DIR"
 export SWIFTNEST_ROOT="$SCRIPT_DIR"
 export HARNESS_ROOT="$SCRIPT_DIR"
 exec "$BINARY_PATH" "$@"

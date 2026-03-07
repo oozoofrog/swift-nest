@@ -39,32 +39,34 @@ Docs/
     fix-bug.md
     refactor.md
     build.md
+    onboarding-review.md
 ```
 
 `Docs/` and `.ai-harness/` are first-class harness assets. Track them in version control by default.
 
-The `./swiftnest` shell entrypoint builds a local macOS Swift binary on first use, so no Python runtime is required.
+The source repository keeps a repo-local `./swiftnest` shell entrypoint for developing SwiftNest itself. Managed target repositories do not receive a repo-local CLI wrapper or CLI sources; they use the globally installed `swiftnest` command instead.
+To avoid overlapping bootstrap builds while developing the starter itself, the local wrapper now serializes builds and defaults to `SWIFTNEST_BUILD_JOBS=1`. Override it explicitly when you want more parallelism, for example `SWIFTNEST_BUILD_JOBS=2 ./swiftnest --help`.
 
 ## Link-Only Agent Setup
 
 If an agent only receives this GitHub link, the expected installation flow is:
 
-1. Clone or download this starter into a temporary directory.
-2. Run the shell entrypoint from the starter checkout into the target app repository with `onboard`.
-3. Review the generated `config/project.yaml`, `AGENTS.md`, and `Docs/` output in the target repository.
-4. Start agent work from the target repository root.
-5. Commit the generated `Docs/` and `.ai-harness/` files in the target repository.
+1. Make sure the global `swiftnest` command is installed and available on `PATH`.
+2. Read the README from this repository first.
+3. Run the global `swiftnest` command with `onboard` against the target app repository.
+4. Review the generated `config/project.yaml`, `AGENTS.md`, and `Docs/` output in the target repository.
+5. Start agent work from the target repository root.
+6. Commit the generated `Docs/` and `.ai-harness/` files in the target repository.
 
 Example:
 
 ```bash
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard \
+swiftnest onboard \
   --target /path/to/current-ios-repo \
   --non-interactive
 ```
 
-The first invocation builds a local Swift binary under `tools/swiftnest-cli/.build/`. Do not run `./swiftnest onboard` or `./swiftnest init` inside the starter checkout when the goal is to install SwiftNest into another repository.
+Use the source checkout's `./swiftnest` only when developing SwiftNest itself. Managed target repositories are expected to use the global `swiftnest` command.
 
 ## Homebrew Packaging
 
@@ -88,24 +90,22 @@ brew install swiftnest
 swiftnest onboard --target /path/to/current-ios-repo
 ```
 
-The Homebrew-installed `swiftnest` command is bootstrap-oriented. When the current directory already contains a repo-local `./swiftnest`, the tap wrapper should delegate to that local entrypoint so follow-up commands continue to run against the repository copy.
-
-The repo-local `./swiftnest` script still builds a local macOS Swift binary on first use, so the target repository continues to require the macOS Swift toolchain.
+The Homebrew-installed `swiftnest` command is the primary runtime entrypoint. After onboarding, continue to run the same global command from inside the target repository for `init`, `workflow`, `render-context`, and `upgrade`.
 
 ## Quick Start
 
-This section assumes the current repository already contains the SwiftNest-managed files and that the macOS Swift toolchain is available.
+This section assumes the current repository already contains the SwiftNest-managed files and that the global `swiftnest` command is installed.
 
 ### 1. Run onboarding
 
 ```bash
-./swiftnest onboard
+swiftnest onboard
 ```
 
 ### 2. Or run onboarding non-interactively
 
 ```bash
-./swiftnest onboard \
+swiftnest onboard \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,testing-rules,location-rules \
@@ -117,19 +117,31 @@ This section assumes the current repository already contains the SwiftNest-manag
 
 ```bash
 cp config/project.example.yaml config/project.yaml
-./swiftnest init --config config/project.yaml
+swiftnest init --config config/project.yaml
 ```
 
 ### 4. Rerender or upgrade later
 
 ```bash
-./swiftnest render-context
-./swiftnest upgrade --to advanced
-./swiftnest workflow list
-./swiftnest workflow scaffold permissions review
+swiftnest render-context
+swiftnest upgrade --to advanced
+swiftnest workflow list
+swiftnest workflow scaffold permissions review
 ```
 
 `upgrade` requires an existing `.ai-harness/state.json`, so run `init` first.
+
+### 5. After onboarding, hand off to agent review
+
+Start the next agent task from the repository root and point it at:
+
+- `.ai-harness/workflows/onboarding-review.md`
+
+That workflow is intended to verify:
+
+- `config/project.yaml` against the real repository
+- the selected profile, skills, and workflows
+- whether generated docs should be rerendered with better repository-specific inputs
 
 ## Usage Scenarios
 
@@ -140,7 +152,7 @@ Use this when the repository is empty or when SwiftNest should exist before the 
 Recommended flow:
 
 1. Create the new repository or enter the empty repository root.
-2. Clone this starter to a temporary directory.
+2. Make sure the global `swiftnest` command is installed and available on `PATH`.
 3. Run `onboard` into the new repository so SwiftNest installs, creates config, and initializes docs in one flow.
 4. Review `config/project.yaml` and the generated `AGENTS.md`.
 5. Start with a light profile and a small skill set if you need to rerun onboarding with explicit options.
@@ -153,8 +165,7 @@ mkdir MyNewApp
 cd MyNewApp
 git init
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard --target "$PWD"
+swiftnest onboard --target "$PWD"
 ```
 
 ### 2. Apply the Harness to an Existing iOS Project
@@ -164,25 +175,25 @@ Use this when the app already exists and SwiftNest should reflect the current pr
 Recommended flow:
 
 1. Inspect the existing architecture, frameworks, permission surfaces, testing style, and naming conventions.
-2. Run `onboard` into the repository root so SwiftNest installs, infers config defaults, and initializes docs together.
+2. Make sure the global `swiftnest` command is installed and then run `onboard` into the repository root so SwiftNest installs, infers config defaults, and initializes docs together.
 3. Review `config/project.yaml` so it reflects the real project, not an aspiration.
-4. Choose the profile, skills, and workflows that match the current codebase when rerunning onboarding or init with explicit options.
-5. Review the generated docs against the current project and commit them.
+4. Start the first follow-up review from `.ai-harness/workflows/onboarding-review.md`.
+5. Choose the profile, skills, and workflows that match the current codebase when rerunning onboarding or init with explicit options.
+6. Review the generated docs against the current project and commit them.
 
 Example:
 
 ```bash
 cd /path/to/existing-ios-repo
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard \
+swiftnest onboard \
   --target "$PWD" \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules \
   --workflows networking,review
 ```
 
-If the project already includes location, HealthKit, or logging-heavy code paths, add those skills explicitly during initialization. Optional workflow scaffolds such as `permissions`, `networking`, or `review` can be added later with `./swiftnest workflow scaffold ...`.
+If the project already includes location, HealthKit, or logging-heavy code paths, add those skills explicitly during initialization. Optional workflow scaffolds such as `permissions`, `networking`, or `review` can be added later with `swiftnest workflow scaffold ...`.
 
 ### 3. Start With the Harness and Evolve It Over Time
 
@@ -199,14 +210,14 @@ Recommended flow:
 Example:
 
 ```bash
-./swiftnest onboard \
+swiftnest onboard \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules \
   --non-interactive
 
-./swiftnest upgrade --to intermediate
-./swiftnest upgrade --to advanced
-./swiftnest render-context
+swiftnest upgrade --to intermediate
+swiftnest upgrade --to advanced
+swiftnest render-context
 ```
 
 In this model, `.ai-harness/state.json` is the continuity anchor for future rerenders and upgrades.
@@ -220,20 +231,13 @@ The installer copies only the SwiftNest-managed files:
 ```text
 Makefile
 config/project.example.yaml
-swiftnest
-harness
 profiles/
 templates/
-tools/swiftnest-cli/Package.swift
-tools/swiftnest-cli/Sources/
-tools/swiftnest-cli/Tests/
 ```
 
 If a managed file already exists in the target repository with different contents, the installer stops unless you pass `--force`.
 
-Local build artifacts under `tools/swiftnest-cli/.build/` are not part of the managed files and should stay ignored.
-
-`harness` remains as a compatibility shim that forwards to `swiftnest`.
+Managed target repositories no longer receive a repo-local CLI wrapper or `tools/swiftnest-cli` sources.
 
 ## Profiles
 
@@ -295,18 +299,19 @@ https://github.com/oozoofrog/swift-nest
 Your job is to install SwiftNest into the current iOS repository.
 
 Follow this process:
-1. Clone or download the starter repository into a temporary directory.
-2. Read the README from the starter repository first.
-3. From the starter checkout, run:
-   ./swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
-4. Review config/project.yaml so it reflects the actual project state.
-5. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
-6. If needed, rerun ./swiftnest onboard or ./swiftnest init with explicit profile, skills, or workflows.
-7. Keep Docs/ and .ai-harness/ checked into the repository.
-8. Summarize the selected profile, selected skills, generated files, and any assumptions.
+1. Make sure the global `swiftnest` command is installed and available on `PATH`.
+2. Read the README from this repository first.
+3. Run the global command:
+   swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
+4. Start the first follow-up review from ./.ai-harness/workflows/onboarding-review.md.
+5. Review config/project.yaml so it reflects the actual project state.
+6. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
+7. If needed, rerun swiftnest onboard or swiftnest init with explicit profile, skills, or workflows.
+8. Keep Docs/ and .ai-harness/ checked into the repository.
+9. Summarize the selected profile, selected skills, generated files, any workflow changes, and any assumptions.
 
 Constraints:
-- Do not run ./swiftnest onboard or ./swiftnest init from the starter checkout when the goal is to modify the current repository.
+- Do not run swiftnest onboard or swiftnest init from the starter checkout when the goal is to modify the current repository.
 - Do not break the existing Xcode project structure.
 - Do not ignore .ai-harness/.
 - Prefer minimal, reviewable changes.
@@ -314,7 +319,7 @@ Constraints:
 - If .ai-harness/state.json already exists, treat it as the current harness state before rerendering or upgrading.
 ```
 
-The point of this prompt is to let an agent use this starter repository as a source of SwiftNest files while installing the actual setup into the app repository that will be worked on.
+The point of this prompt is to let an agent use this starter repository as the reference for SwiftNest while the globally installed `swiftnest` command updates the actual app repository.
 
 ## State Files
 
@@ -331,28 +336,29 @@ Paths inside the state file are stored relative to the repository when possible,
 
 ## Commands
 
-From a starter checkout or any repository that already contains the managed SwiftNest files:
+From any shell where the global `swiftnest` command is installed:
 
 ```bash
-./swiftnest onboard --target /path/to/app-repo
+swiftnest onboard --target /path/to/app-repo
 make onboard TARGET=/path/to/app-repo
-./swiftnest install --target /path/to/app-repo
+swiftnest install --target /path/to/app-repo
 make install-swiftnest TARGET=/path/to/app-repo
 ```
 
 From a repository where SwiftNest has already been installed:
 
 ```bash
-./swiftnest onboard
+swiftnest onboard
 make onboard CONFIG=config/project.yaml
-./swiftnest list-skills
-./swiftnest list-profiles
-./swiftnest init --config config/project.yaml --workflows permissions,review
-./swiftnest workflow list
-./swiftnest workflow print add-feature
-./swiftnest workflow scaffold permissions review
-./swiftnest render-context
-./swiftnest upgrade --to intermediate
+swiftnest list-skills
+swiftnest list-profiles
+swiftnest init --config config/project.yaml --workflows permissions,review
+swiftnest workflow list
+swiftnest workflow print onboarding-review
+swiftnest workflow print add-feature
+swiftnest workflow scaffold permissions review
+swiftnest render-context
+swiftnest upgrade --to intermediate
 make init CONFIG=config/project.yaml
 make context
 make upgrade PROFILE=advanced
@@ -361,8 +367,8 @@ make upgrade PROFILE=advanced
 Runtime output language can be selected with a global option or environment variable:
 
 ```bash
-./swiftnest --lang ko --help
-SWIFTNEST_LANG=ko ./swiftnest list-profiles
+swiftnest --lang ko --help
+SWIFTNEST_LANG=ko swiftnest list-profiles
 ```
 
 ## Publish Your Own Copy

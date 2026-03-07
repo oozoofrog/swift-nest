@@ -1,4 +1,4 @@
-SWIFTNEST ?= ./swiftnest
+SWIFTNEST ?= $(if $(wildcard ./swiftnest),./swiftnest,swiftnest)
 HARNESS ?= $(SWIFTNEST)
 CONFIG ?= config/project.yaml
 TARGET ?=

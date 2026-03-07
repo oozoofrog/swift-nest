@@ -39,32 +39,34 @@ Docs/
     fix-bug.md
     refactor.md
     build.md
+    onboarding-review.md
 ```
 
 `Docs/` 와 `.ai-harness/` 는 하네스의 핵심 자산이므로 기본적으로 버전 관리에 포함하는 것을 권장합니다.
 
-`./swiftnest` shell entrypoint 는 첫 실행 시 로컬 macOS Swift 바이너리를 빌드하므로 Python runtime 이 필요하지 않습니다.
+소스 저장소에는 SwiftNest 자체를 개발하기 위한 repo-local `./swiftnest` shell entrypoint 가 남아 있습니다. 하지만 관리 대상 앱 저장소에는 repo-local CLI wrapper 나 CLI 소스를 설치하지 않고, 전역 `swiftnest` 명령만 사용합니다.
+스타터 자체를 개발할 때 bootstrap build 가 겹치지 않도록 로컬 wrapper 는 빌드를 직렬화하고 기본적으로 `SWIFTNEST_BUILD_JOBS=1` 을 사용합니다. 더 높은 병렬도가 필요하면 `SWIFTNEST_BUILD_JOBS=2 ./swiftnest --help` 처럼 명시적으로 조정할 수 있습니다.
 
 ## GitHub 링크만 전달된 에이전트 설치 흐름
 
 에이전트가 이 GitHub 링크만 받은 경우, 기대하는 설치 순서는 아래와 같습니다.
 
-1. 이 스타터를 임시 디렉터리에 clone 또는 download 합니다.
-2. 스타터 체크아웃에서 `onboard` 로 대상 앱 저장소에 SwiftNest를 설치합니다.
-3. 대상 저장소 안의 `config/project.yaml`, `AGENTS.md`, `Docs/` 생성 결과를 검토합니다.
-4. 대상 저장소 루트에서 에이전트 작업을 시작합니다.
-5. 대상 저장소에서 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
+1. 전역 `swiftnest` 명령이 설치되어 있고 `PATH` 에서 실행 가능한지 확인합니다.
+2. 이 저장소의 README를 먼저 읽습니다.
+3. 전역 `swiftnest` 명령으로 대상 앱 저장소에 `onboard` 를 실행합니다.
+4. 대상 저장소 안의 `config/project.yaml`, `AGENTS.md`, `Docs/` 생성 결과를 검토합니다.
+5. 대상 저장소 루트에서 에이전트 작업을 시작합니다.
+6. 대상 저장소에서 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
 
 예시:
 
 ```bash
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard \
+swiftnest onboard \
   --target /path/to/current-ios-repo \
   --non-interactive
 ```
 
-첫 실행 시 `tools/swiftnest-cli/.build/` 아래에 로컬 Swift 바이너리를 빌드합니다. 다른 저장소에 SwiftNest를 설치하는 것이 목적이라면, 스타터 체크아웃 안에서 `./swiftnest onboard` 나 `./swiftnest init` 를 실행하면 안 됩니다.
+소스 체크아웃의 `./swiftnest` 는 SwiftNest 자체를 개발할 때만 사용하고, 관리 대상 저장소에서는 전역 `swiftnest` 명령을 사용합니다.
 
 ## Homebrew 패키징
 
@@ -88,24 +90,22 @@ brew install swiftnest
 swiftnest onboard --target /path/to/current-ios-repo
 ```
 
-Homebrew로 설치된 전역 `swiftnest` 는 bootstrap 용도에 맞춰 설계됩니다. 현재 디렉터리에 repo-local `./swiftnest` 가 이미 있다면, tap wrapper 는 그 로컬 엔트리포인트로 위임해서 이후 명령이 계속 저장소 복사본을 기준으로 실행되게 해야 합니다.
-
-repo-local `./swiftnest` 스크립트는 첫 실행 시 여전히 로컬 macOS Swift 바이너리를 빌드하므로, 대상 저장소에서도 macOS Swift toolchain 이 필요합니다.
+Homebrew로 설치한 전역 `swiftnest` 가 기본 실행 진입점입니다. 온보딩 이후에도 대상 저장소 안에서 같은 전역 명령으로 `init`, `workflow`, `render-context`, `upgrade` 를 계속 실행합니다.
 
 ## 빠른 시작
 
-이 섹션은 현재 저장소에 이미 하네스 관리 파일이 들어 있고, macOS Swift toolchain 을 사용할 수 있다고 가정합니다.
+이 섹션은 현재 저장소에 이미 하네스 관리 파일이 들어 있고, 전역 `swiftnest` 명령이 설치되어 있다고 가정합니다.
 
 ### 1. 온보딩 실행
 
 ```bash
-./swiftnest onboard
+swiftnest onboard
 ```
 
 ### 2. 비대화식 온보딩 실행
 
 ```bash
-./swiftnest onboard \
+swiftnest onboard \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,testing-rules,location-rules \
@@ -117,19 +117,31 @@ repo-local `./swiftnest` 스크립트는 첫 실행 시 여전히 로컬 macOS S
 
 ```bash
 cp config/project.example.yaml config/project.yaml
-./swiftnest init --config config/project.yaml
+swiftnest init --config config/project.yaml
 ```
 
 ### 4. 이후 rerender 또는 upgrade
 
 ```bash
-./swiftnest render-context
-./swiftnest upgrade --to advanced
-./swiftnest workflow list
-./swiftnest workflow scaffold permissions review
+swiftnest render-context
+swiftnest upgrade --to advanced
+swiftnest workflow list
+swiftnest workflow scaffold permissions review
 ```
 
 `upgrade` 는 기존 `.ai-harness/state.json` 이 있어야 하므로 먼저 `init` 을 실행해야 합니다.
+
+### 5. 온보딩 후 에이전트 검토로 넘기기
+
+다음 에이전트 작업은 저장소 루트에서 시작하고, 아래 파일부터 읽게 하세요.
+
+- `.ai-harness/workflows/onboarding-review.md`
+
+이 workflow는 다음 내용을 검토하도록 설계되어 있습니다.
+
+- `config/project.yaml` 이 실제 저장소를 반영하는지
+- 선택된 프로필, 스킬, 워크플로가 현재 코드베이스와 맞는지
+- 저장소별 입력을 더 잘 반영하도록 생성 문서를 다시 렌더링해야 하는지
 
 ## 사용 시나리오
 
@@ -140,7 +152,7 @@ cp config/project.example.yaml config/project.yaml
 권장 흐름:
 
 1. 새 저장소를 만들거나 빈 저장소 루트로 이동합니다.
-2. 이 스타터를 임시 디렉터리에 clone 합니다.
+2. 전역 `swiftnest` 명령이 설치되어 있고 `PATH` 에서 실행 가능한지 확인합니다.
 3. `onboard` 로 새 저장소에 SwiftNest를 설치하고 설정 및 문서 생성을 한 번에 진행합니다.
 4. `config/project.yaml` 과 생성된 `AGENTS.md` 를 검토합니다.
 5. 필요하다면 가벼운 프로필과 작은 스킬 세트로 온보딩을 다시 실행합니다.
@@ -153,8 +165,7 @@ mkdir MyNewApp
 cd MyNewApp
 git init
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard --target "$PWD"
+swiftnest onboard --target "$PWD"
 ```
 
 ### 2. 이미 존재하는 iOS 프로젝트 상태에 맞춰 하네스를 적용하는 경우
@@ -164,25 +175,25 @@ git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
 권장 흐름:
 
 1. 현재 프로젝트의 아키텍처, 프레임워크 사용, 권한 영역, 테스트 스타일을 먼저 확인합니다.
-2. 저장소 루트에 `onboard` 를 실행해서 SwiftNest 설치, 설정 기본값 생성, 문서 초기화를 함께 수행합니다.
+2. 전역 `swiftnest` 명령이 설치되어 있는지 확인한 뒤 저장소 루트에 `onboard` 를 실행해서 SwiftNest 설치, 설정 기본값 생성, 문서 초기화를 함께 수행합니다.
 3. 실제 프로젝트 상태를 반영하도록 `config/project.yaml` 을 검토합니다.
-4. 현재 코드베이스에 맞는 프로필, 스킬, 워크플로를 필요에 따라 명시합니다.
-5. 생성된 문서가 현재 프로젝트 관습과 맞는지 검토하고 커밋합니다.
+4. 첫 후속 검토는 `.ai-harness/workflows/onboarding-review.md` 부터 시작합니다.
+5. 현재 코드베이스에 맞는 프로필, 스킬, 워크플로를 필요에 따라 명시합니다.
+6. 생성된 문서가 현재 프로젝트 관습과 맞는지 검토하고 커밋합니다.
 
 예시:
 
 ```bash
 cd /path/to/existing-ios-repo
 
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
-/tmp/swift-nest/swiftnest onboard \
+swiftnest onboard \
   --target "$PWD" \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules \
   --workflows networking,review
 ```
 
-프로젝트에 위치 권한, HealthKit, 구조화 로그가 이미 중요하게 들어가 있다면 해당 스킬도 초기화 시점에 함께 추가하는 것이 좋습니다. `permissions`, `networking`, `review` 같은 optional workflow scaffold는 이후 `./swiftnest workflow scaffold ...`로 추가합니다.
+프로젝트에 위치 권한, HealthKit, 구조화 로그가 이미 중요하게 들어가 있다면 해당 스킬도 초기화 시점에 함께 추가하는 것이 좋습니다. `permissions`, `networking`, `review` 같은 optional workflow scaffold는 이후 `swiftnest workflow scaffold ...`로 추가합니다.
 
 ### 3. 하네스를 먼저 도입하고 이후 더 발전시켜 적용하는 경우
 
@@ -199,14 +210,14 @@ git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
 예시:
 
 ```bash
-./swiftnest onboard \
+swiftnest onboard \
   --profile basic \
   --skills ios-architecture,swiftui-rules,testing-rules \
   --non-interactive
 
-./swiftnest upgrade --to intermediate
-./swiftnest upgrade --to advanced
-./swiftnest render-context
+swiftnest upgrade --to intermediate
+swiftnest upgrade --to advanced
+swiftnest render-context
 ```
 
 이 방식에서는 `.ai-harness/state.json` 이 이후 rerender 와 upgrade 를 이어주는 기준점 역할을 합니다.
@@ -220,20 +231,13 @@ optional workflow는 기본 비활성입니다. `init` 를 다시 실행하면 w
 ```text
 Makefile
 config/project.example.yaml
-swiftnest
-harness
 profiles/
 templates/
-tools/swiftnest-cli/Package.swift
-tools/swiftnest-cli/Sources/
-tools/swiftnest-cli/Tests/
 ```
 
 대상 저장소에 같은 경로의 파일이 이미 있고 내용이 다르면, `--force` 없이는 설치가 중단됩니다.
 
-`tools/swiftnest-cli/.build/` 아래의 로컬 빌드 산출물은 관리 대상 파일이 아니며 계속 ignore 상태여야 합니다.
-
-`harness`는 `swiftnest`로 전달하는 호환 shim으로 남아 있습니다.
+이제 관리 대상 저장소에는 repo-local CLI wrapper 나 `tools/swiftnest-cli` 소스를 설치하지 않습니다.
 
 ## 프로필
 
@@ -289,32 +293,33 @@ tools/swiftnest-cli/Tests/
 아래 프롬프트를 GitHub 링크와 함께 에이전트에게 전달할 수 있습니다.
 
 ```text
-Use this repository as the SwiftNest starter:
+이 저장소를 SwiftNest 스타터로 사용하세요:
 https://github.com/oozoofrog/swift-nest
 
-Your job is to install SwiftNest into the current iOS repository.
+당신의 작업은 현재 iOS 저장소에 SwiftNest를 설치하는 것입니다.
 
-Follow this process:
-1. Clone or download the starter repository into a temporary directory.
-2. Read the README from the starter repository first.
-3. From the starter checkout, run:
-   ./swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
-4. Review config/project.yaml so it reflects the actual project state.
-5. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
-6. If needed, rerun ./swiftnest onboard or ./swiftnest init with explicit profile, skills, or workflows.
-7. Keep Docs/ and .ai-harness/ checked into the repository.
-8. Summarize the selected profile, selected skills, generated files, and any assumptions.
+다음 순서를 따르세요:
+1. 전역 `swiftnest` 명령이 설치되어 있고 `PATH` 에서 실행 가능한지 확인합니다.
+2. 이 저장소의 README를 먼저 읽습니다.
+3. 전역 명령을 실행합니다:
+   swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
+4. 첫 후속 검토는 `./.ai-harness/workflows/onboarding-review.md` 부터 시작합니다.
+5. `config/project.yaml` 이 실제 프로젝트 상태를 반영하는지 검토합니다.
+6. 생성된 `AGENTS.md`, `Docs/`, `.ai-harness/` 결과를 검토합니다.
+7. 필요하면 명시적인 profile, skills, workflows 옵션과 함께 `swiftnest onboard` 또는 `swiftnest init` 을 다시 실행합니다.
+8. `Docs/` 와 `.ai-harness/` 는 저장소에 계속 커밋 상태로 유지합니다.
+9. 선택한 profile, 선택한 skills, 생성된 파일, workflow 변경 사항, 가정을 요약합니다.
 
-Constraints:
-- Do not run ./swiftnest onboard or ./swiftnest init from the starter checkout when the goal is to modify the current repository.
-- Do not break the existing Xcode project structure.
-- Do not ignore .ai-harness/.
-- Prefer minimal, reviewable changes.
-- If Docs/ already exists, merge carefully instead of blindly overwriting unrelated files.
-- If .ai-harness/state.json already exists, treat it as the current harness state before rerendering or upgrading.
+제약사항:
+- 현재 저장소를 수정하는 목적이라면 스타터 체크아웃 안에서 `swiftnest onboard` 나 `swiftnest init` 을 실행하지 마세요.
+- 기존 Xcode 프로젝트 구조를 깨뜨리지 마세요.
+- `.ai-harness/` 를 무시하지 마세요.
+- 변경 범위는 작고 리뷰하기 쉽게 유지하세요.
+- `Docs/` 가 이미 존재한다면, 관련 없는 파일을 무조건 덮어쓰지 말고 주의해서 병합하세요.
+- `.ai-harness/state.json` 이 이미 존재한다면, 다시 렌더링하거나 업그레이드하기 전에 현재 하네스 상태로 취급하세요.
 ```
 
-이 프롬프트의 목적은 스타터 저장소를 SwiftNest 파일의 소스로 활용하면서, 실제 설정은 작업 대상 앱 저장소 안에 설치하도록 만드는 것입니다.
+이 프롬프트의 목적은 스타터 저장소를 SwiftNest의 기준점으로 삼되, 실제 앱 저장소 갱신은 전역 `swiftnest` 명령으로 수행하게 만드는 것입니다.
 
 ## 상태 파일
 
@@ -331,28 +336,29 @@ Constraints:
 
 ## 명령 모음
 
-스타터 체크아웃 또는 이미 SwiftNest 관리 파일이 들어 있는 저장소에서:
+전역 `swiftnest` 명령이 설치된 셸에서:
 
 ```bash
-./swiftnest onboard --target /path/to/app-repo
+swiftnest onboard --target /path/to/app-repo
 make onboard TARGET=/path/to/app-repo
-./swiftnest install --target /path/to/app-repo
+swiftnest install --target /path/to/app-repo
 make install-swiftnest TARGET=/path/to/app-repo
 ```
 
 SwiftNest가 이미 설치된 저장소에서:
 
 ```bash
-./swiftnest onboard
+swiftnest onboard
 make onboard CONFIG=config/project.yaml
-./swiftnest list-skills
-./swiftnest list-profiles
-./swiftnest init --config config/project.yaml --workflows permissions,review
-./swiftnest workflow list
-./swiftnest workflow print add-feature
-./swiftnest workflow scaffold permissions review
-./swiftnest render-context
-./swiftnest upgrade --to intermediate
+swiftnest list-skills
+swiftnest list-profiles
+swiftnest init --config config/project.yaml --workflows permissions,review
+swiftnest workflow list
+swiftnest workflow print onboarding-review
+swiftnest workflow print add-feature
+swiftnest workflow scaffold permissions review
+swiftnest render-context
+swiftnest upgrade --to intermediate
 make init CONFIG=config/project.yaml
 make context
 make upgrade PROFILE=advanced
@@ -361,8 +367,8 @@ make upgrade PROFILE=advanced
 런타임 출력 언어는 전역 옵션이나 환경변수로 고를 수 있습니다.
 
 ```bash
-./swiftnest --lang ko --help
-SWIFTNEST_LANG=ko ./swiftnest list-profiles
+swiftnest --lang ko --help
+SWIFTNEST_LANG=ko swiftnest list-profiles
 ```
 
 ## 자신의 사본 공개하기

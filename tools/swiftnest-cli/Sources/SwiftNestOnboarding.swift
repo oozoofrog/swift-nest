@@ -85,7 +85,7 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingStarterPath, status.starterRootURL.path))
         print(SwiftNestLocalizer.text(.onboardingTargetPath, status.targetRootURL.path))
 
-        if !status.targetAlreadyManaged {
+        if !status.targetAlreadyManaged || parsed.contains("--force") {
             let installResult = try installManagedFiles(
                 into: status.targetRootURL,
                 force: parsed.contains("--force"),
@@ -101,7 +101,7 @@ extension SwiftNestCLI {
             print(SwiftNestLocalizer.text(.onboardingManagedFilesReady, status.targetRootURL.path))
         }
 
-        let targetRepository = SwiftNestRepository(rootURL: status.targetRootURL)
+        let targetRepository = SwiftNestRepository(rootURL: status.targetRootURL, assetRootURL: repository.assetRootURL)
         let configCreated = try ensureOnboardingConfig(
             at: status.configURL,
             repository: targetRepository,
@@ -136,10 +136,11 @@ extension SwiftNestCLI {
             repository: targetRepository,
             interactive: interactive
         )
-        let workflows = try resolveOnboardingWorkflows(
+        let workflows = try resolveWorkflowSelection(
             parsed: parsed,
             interactive: interactive,
-            repository: targetRepository
+            repository: targetRepository,
+            defaultWorkflows: onboardingDefaultWorkflows(repository: targetRepository)
         )
 
         let result = try initializeHarness(
@@ -188,15 +189,10 @@ extension SwiftNestCLI {
             repository: repository
         )
 
-        try repository.fileManager.createDirectory(at: repository.stateDirectoryURL, withIntermediateDirectories: true)
-        let selectedProfileURL = repository.stateDirectoryURL.appendingPathComponent("selected_profile.yaml")
-        let selectedSkillsURL = repository.stateDirectoryURL.appendingPathComponent("selected_skills.txt")
-        let profileSourceURL = try repository.profileURL(named: profileName)
-        let profileText = try String(contentsOf: profileSourceURL, encoding: .utf8)
-        try profileText.write(to: selectedProfileURL, atomically: true, encoding: .utf8)
-        try (skills.joined(separator: "\n") + "\n").write(to: selectedSkillsURL, atomically: true, encoding: .utf8)
+        try writeSelectedConfigurationFiles(profileName: profileName, skills: skills, repository: repository)
 
         let state = SwiftNestState(
+            dataVersion: currentDataVersion,
             profile: profileName,
             skills: skills,
             workflows: renderedWorkflows,
@@ -215,7 +211,7 @@ extension SwiftNestCLI {
         let fileManager = starterRepository.fileManager
         let resolvedTargetRoot = targetRootURL.resolvingSymlinksInPath().standardizedFileURL
         return SwiftNestOnboardingStatus(
-            starterRootURL: starterRepository.rootURL.resolvingSymlinksInPath().standardizedFileURL,
+            starterRootURL: starterRepository.assetRootURL.resolvingSymlinksInPath().standardizedFileURL,
             targetRootURL: resolvedTargetRoot,
             targetAlreadyManaged: SwiftNestRepository.isRepositoryRoot(resolvedTargetRoot),
             configURL: configURL.resolvingSymlinksInPath().standardizedFileURL,
@@ -233,26 +229,33 @@ extension SwiftNestCLI {
             return URL(fileURLWithPath: rawTarget, isDirectory: true).standardizedFileURL
         }
 
-        let repoRootURL = repository.rootURL.resolvingSymlinksInPath().standardizedFileURL
         let resolvedCurrentDirectoryURL = currentDirectoryURL.resolvingSymlinksInPath().standardizedFileURL
-        let repoPrefix = repoRootURL.path.hasSuffix("/") ? repoRootURL.path : repoRootURL.path + "/"
+        let assetRootURL = repository.assetRootURL.resolvingSymlinksInPath().standardizedFileURL
+        let assetPrefix = assetRootURL.path.hasSuffix("/") ? assetRootURL.path : assetRootURL.path + "/"
 
-        if resolvedCurrentDirectoryURL.path == repoRootURL.path || resolvedCurrentDirectoryURL.path.hasPrefix(repoPrefix) {
+        if resolvedCurrentDirectoryURL.path == assetRootURL.path || resolvedCurrentDirectoryURL.path.hasPrefix(assetPrefix) {
             if repository.isStarterCheckout {
                 throw SwiftNestError(SwiftNestLocalizer.text(.onboardingStarterCheckoutRequiresTarget))
             }
-            return repoRootURL
         }
 
-        if SwiftNestRepository.isRepositoryRoot(resolvedCurrentDirectoryURL) {
-            return resolvedCurrentDirectoryURL
+        if let currentRepository = SwiftNestRepository.findManagedRepository(
+            assetRootURL: assetRootURL,
+            currentDirectoryPath: resolvedCurrentDirectoryURL.path
+        ) {
+            return currentRepository.rootURL
         }
 
         throw SwiftNestError(SwiftNestLocalizer.text(.onboardingRequiresTargetOutsideRepository))
     }
 
     static func resolveOnboardingConfigURL(_ rawPath: String?, targetRootURL: URL) -> URL {
-        let configPath = rawPath?.isEmpty == false ? rawPath! : "config/project.yaml"
+        let configPath: String
+        if let rawPath, !rawPath.isEmpty {
+            configPath = rawPath
+        } else {
+            configPath = "config/project.yaml"
+        }
         return URL(fileURLWithPath: configPath, relativeTo: targetRootURL).standardizedFileURL
     }
 
@@ -480,7 +483,7 @@ extension SwiftNestCLI {
         if let fallback = try repository.availableProfiles().first?.deletingPathExtension().lastPathComponent {
             return fallback
         }
-        return defaultOnboardingProfileName
+        throw SwiftNestError(SwiftNestLocalizer.text(.noProfilesAvailable))
     }
 
     static func resolveOnboardingSkills(
@@ -498,29 +501,41 @@ extension SwiftNestCLI {
         return defaultSkills.sorted()
     }
 
-    static func resolveOnboardingWorkflows(
+    static func resolveWorkflowSelection(
         parsed: ParsedArguments,
         interactive: Bool,
-        repository: SwiftNestRepository
+        repository: SwiftNestRepository,
+        defaultWorkflows: [String]
     ) throws -> [String] {
+        let definitions = availableWorkflowDefinitions(repository: repository)
+        let availableNames = Set(definitions.map(\.name))
+        let availableDefaultWorkflows = defaultWorkflows.filter { availableNames.contains($0) }
+
         if let rawWorkflows = parsed.value(for: "--workflows"), !rawWorkflows.isEmpty {
             let names = rawWorkflows
                 .split(separator: ",")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
-            let validated = try validateWorkflowNames(names)
-            let merged = Set(defaultWorkflowNames).union(validated)
-            return orderedWorkflowDefinitions().map(\.name).filter { merged.contains($0) }
+            let validated = try validateWorkflowNames(names, repository: repository)
+            let merged = Set(availableDefaultWorkflows).union(validated)
+            return definitions.map(\.name).filter { merged.contains($0) }
         }
         if interactive {
-            return try chooseWorkflowsInteractively(defaultWorkflows: defaultWorkflowNames)
+            return try chooseWorkflowsInteractively(defaultWorkflows: availableDefaultWorkflows, repository: repository)
         }
-        return defaultWorkflowNames
+        return availableDefaultWorkflows
     }
 
-    static func chooseWorkflowsInteractively(defaultWorkflows: [String]) throws -> [String] {
+    static func onboardingDefaultWorkflows(repository: SwiftNestRepository) -> [String] {
+        defaultOnboardingWorkflowNames.filter { workflowTemplateExists(named: $0, repository: repository) }
+    }
+
+    static func chooseWorkflowsInteractively(
+        defaultWorkflows: [String],
+        repository: SwiftNestRepository
+    ) throws -> [String] {
         print(SwiftNestLocalizer.text(.availableWorkflowsHeader))
-        let definitions = orderedWorkflowDefinitions()
+        let definitions = availableWorkflowDefinitions(repository: repository)
         for (index, workflow) in definitions.enumerated() {
             let kind = workflow.isDefault
                 ? SwiftNestLocalizer.text(.workflowKindDefault)
@@ -545,15 +560,17 @@ extension SwiftNestCLI {
             }
             chosen.append(definitions[number - 1].name)
         }
-        let merged = Set(defaultWorkflowNames).union(chosen)
+        let merged = Set(defaultWorkflows).union(chosen)
         return definitions.map(\.name).filter { merged.contains($0) }
     }
 
     static func printOnboardingAlreadyCompletedSummary(state: SwiftNestState, repository: SwiftNestRepository) {
+        let workflows = normalizedWorkflowNames(state.workflows)
         print(SwiftNestLocalizer.text(.onboardingAlreadyCompleted, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.onboardingCurrentProfile, state.profile))
         print(SwiftNestLocalizer.text(.onboardingCurrentSkills, state.skills.joined(separator: ", ")))
-        print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, normalizedWorkflowNames(state.workflows).joined(separator: ", ")))
+        print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, workflows.joined(separator: ", ")))
+        printOnboardingReviewFollowUpIfNeeded(workflows: workflows)
         print(SwiftNestLocalizer.text(.onboardingUseForceToRerun))
     }
 
@@ -575,14 +592,27 @@ extension SwiftNestCLI {
         print("  - Docs/AI_SKILLS/*")
         print("  - .ai-harness/state.json")
         print("  - .ai-harness/rendered_context.md")
+        if result.workflows.contains("onboarding-review") {
+            print("  - .ai-harness/workflows/onboarding-review.md")
+        }
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisHeader))
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisLine1))
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisLine2))
         print(SwiftNestLocalizer.text(.onboardingNextStepsHeader))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewConfig, configURL.path))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewAgents))
+        printOnboardingReviewFollowUpIfNeeded(workflows: result.workflows)
         print(SwiftNestLocalizer.text(.onboardingNextStepAgentRoot, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
+    }
+
+    static func printOnboardingReviewFollowUpIfNeeded(workflows: [String]) {
+        guard normalizedWorkflowNames(workflows).contains("onboarding-review") else {
+            return
+        }
+
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
     }
 
     static func skillSummary(named skill: String, repository: SwiftNestRepository) -> String {

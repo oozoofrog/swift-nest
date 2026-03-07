@@ -47,7 +47,6 @@ For the feature-to-release handoff sequence after work lands on `main`, see the 
 
 The rendered Homebrew wrapper should:
 
-- set `SWIFTNEST_ROOT` to the formula `libexec`
-- allow bootstrap commands from the global installation (`onboard`, `install`, `list-skills`, `list-profiles`, and help)
-- delegate to `./swiftnest` when the current directory already contains a repo-local installation
-- print a clear error for commands like `init` when no repo-local installation exists yet
+- set `SWIFTNEST_ASSET_ROOT` (and compatibility aliases) to the formula `libexec`
+- run the global `swiftnest` binary for all commands, including repo-targeting commands inside an onboarded repository
+- avoid installing repo-local CLI wrappers or `tools/swiftnest-cli` into target repositories
