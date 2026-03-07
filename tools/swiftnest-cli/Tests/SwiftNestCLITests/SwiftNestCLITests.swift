@@ -95,7 +95,8 @@ final class SwiftNestCLITests: XCTestCase {
 
     func testLocalizedUsageAndPromptStringsAreAvailableInKorean() {
         XCTAssertTrue(SwiftNestLocalizer.text(.usageTopLevel, language: .ko).contains("사용법"))
-        XCTAssertTrue(SwiftNestLocalizer.text(.chooseProfileNumberPrompt, language: .ko).contains("프로필 번호"))
+        XCTAssertTrue(SwiftNestLocalizer.text(.usageTopLevel, language: .ko).contains("onboard"))
+        XCTAssertTrue(SwiftNestLocalizer.text(.chooseProfileNumberPrompt, language: .ko, "2").contains("프로필 번호"))
     }
 
     func testWorkflowRuntimeDescriptionIsLocalized() throws {
@@ -147,6 +148,93 @@ final class SwiftNestCLITests: XCTestCase {
         )
     }
 
+    func testOnboardCreatesConfigDocsAndStateInTargetRepository() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("SampleApp-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("SampleApp.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        let parsed = ParsedArguments(
+            values: [
+                "--target": targetRoot.path,
+                "--workflows": "networking,review",
+            ],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+
+        try SwiftNestCLI.runOnboard(parsed: parsed, repository: SwiftNestRepository(rootURL: starterRoot))
+
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("swiftnest").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("config/project.yaml").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("AGENTS.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("Docs/AI_RULES.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/state.json").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/networking.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/review.md").path))
+
+        let configText = try String(contentsOf: targetRoot.appendingPathComponent("config/project.yaml"), encoding: .utf8)
+        XCTAssertTrue(configText.contains("project_name: SampleApp"))
+        XCTAssertTrue(configText.contains("build_command: xcodebuild -workspace SampleApp.xcworkspace -scheme SampleApp build"))
+
+        let state = try JSONDecoder().decode(
+            SwiftNestState.self,
+            from: Data(contentsOf: targetRoot.appendingPathComponent(".ai-harness/state.json"))
+        )
+        XCTAssertEqual(state.profile, "intermediate")
+        XCTAssertEqual(state.skills, ["concurrency-rules", "ios-architecture", "networking-rules", "swiftui-rules", "testing-rules"])
+        XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "networking", "review"])
+    }
+
+    func testOnboardRequiresTargetWhenOutsideRepositoryContext() throws {
+        let repository = SwiftNestRepository(rootURL: try makeRepositoryFixture())
+        let outsideURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideURL, withIntermediateDirectories: true)
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.resolveOnboardingTargetURL(
+                parsed: ParsedArguments(values: [:], flags: [], positionals: []),
+                repository: repository,
+                currentDirectoryURL: outsideURL
+            )
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                "onboard requires --target <path> when you are not already inside a SwiftNest-managed repository."
+            )
+        }
+    }
+
+    func testOnboardRequiresTargetFromStarterCheckout() throws {
+        let repository = SwiftNestRepository(rootURL: try makeRepositoryFixture(includeStarterOnlyPaths: true))
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.resolveOnboardingTargetURL(
+                parsed: ParsedArguments(values: [:], flags: [], positionals: []),
+                repository: repository,
+                currentDirectoryURL: repository.rootURL
+            )
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                "Running onboard from the SwiftNest starter checkout requires --target <path> so the target app repository is updated instead of the starter itself."
+            )
+        }
+    }
+
     func testRootWrapperUsesKoreanErrorWhenSwiftIsMissing() throws {
         let wrapperURL = repositoryRootURL().appendingPathComponent("swiftnest")
         let emptyBinDirectory = FileManager.default.temporaryDirectory
@@ -175,7 +263,7 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(stderr.contains("오류: macOS에서 SwiftNest CLI를 빌드하려면 swift가 필요합니다."))
     }
 
-    private func makeRepositoryFixture() throws -> URL {
+    private func makeRepositoryFixture(includeStarterOnlyPaths: Bool = false) throws -> URL {
         let fileManager = FileManager.default
         let root = fileManager.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -195,6 +283,12 @@ final class SwiftNestCLITests: XCTestCase {
                 withIntermediateDirectories: true
             )
         }
+        if includeStarterOnlyPaths {
+            try fileManager.createDirectory(
+                at: root.appendingPathComponent("packaging/homebrew", isDirectory: true),
+                withIntermediateDirectories: true
+            )
+        }
 
         let filePaths = [
             "Makefile",
@@ -208,18 +302,29 @@ final class SwiftNestCLITests: XCTestCase {
             "templates/Docs/AI_PROMPT_ENTRY.md",
             "templates/Docs/AI_RULES.md",
             "templates/Docs/AI_WORKFLOWS.md",
+            "templates/Docs/AI_SKILLS/concurrency-rules.md",
             "templates/Docs/AI_SKILLS/ios-architecture.md",
+            "templates/Docs/AI_SKILLS/networking-rules.md",
+            "templates/Docs/AI_SKILLS/swiftui-rules.md",
+            "templates/Docs/AI_SKILLS/testing-rules.md",
             "templates/Workflows/add-feature.md",
             "templates/Workflows/build.md",
             "templates/Workflows/fix-bug.md",
+            "templates/Workflows/networking.md",
             "templates/Workflows/refactor.md",
+            "templates/Workflows/review.md",
             "tools/swiftnest-cli/Package.swift",
             "tools/swiftnest-cli/Sources/SimpleDocumentLoader.swift",
             "tools/swiftnest-cli/Sources/SwiftNestCLI.swift",
+            "tools/swiftnest-cli/Sources/SwiftNestLocalization.swift",
+            "tools/swiftnest-cli/Sources/SwiftNestOnboarding.swift",
             "tools/swiftnest-cli/Sources/WorkflowSupport.swift",
             "tools/swiftnest-cli/Sources/main.swift",
             "tools/swiftnest-cli/Tests/SwiftNestCLITests/SwiftNestCLITests.swift",
         ]
+        let extendedFilePaths = includeStarterOnlyPaths
+            ? filePaths + ["packaging/homebrew/swiftnest.rb.template"]
+            : filePaths
         let fileContents: [String: String] = [
             "profiles/advanced.yaml": """
             name: advanced
@@ -241,10 +346,39 @@ final class SwiftNestCLITests: XCTestCase {
             description_ko: 제품 개발에 균형 있게 맞춘 구성입니다.
             default_skills:
               - ios-architecture
+              - swiftui-rules
+              - concurrency-rules
+              - networking-rules
+              - testing-rules
+            """,
+            "templates/Docs/AI_SKILLS/concurrency-rules.md": """
+            # Concurrency Rules
+
+            Apply this skill whenever async work, task orchestration, cancellation, or actor correctness is involved.
+            """,
+            "templates/Docs/AI_SKILLS/ios-architecture.md": """
+            # iOS Architecture Rules
+
+            Apply this skill whenever the task touches app structure, screen composition, or responsibility boundaries.
+            """,
+            "templates/Docs/AI_SKILLS/networking-rules.md": """
+            # Networking Rules
+
+            Apply this skill whenever API calls, request/response modeling, retries, or remote sync behavior are involved.
+            """,
+            "templates/Docs/AI_SKILLS/swiftui-rules.md": """
+            # SwiftUI Rules
+
+            Apply this skill whenever the task touches SwiftUI screens or UI state.
+            """,
+            "templates/Docs/AI_SKILLS/testing-rules.md": """
+            # Testing Rules
+
+            Apply this skill whenever logic changes are introduced.
             """,
         ]
 
-        for filePath in filePaths {
+        for filePath in extendedFilePaths {
             let destinationURL = root.appendingPathComponent(filePath)
             try fileManager.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let contents = fileContents[filePath] ?? "fixture"

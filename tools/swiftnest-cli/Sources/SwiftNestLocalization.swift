@@ -47,6 +47,42 @@ enum SwiftNestMessageKey: Hashable {
     case unknownProfile
     case noStateFile
     case unknownCommand
+    case unexpectedPositionalsOnboard
+    case onboardingRequiresTargetOutsideRepository
+    case onboardingStarterCheckoutRequiresTarget
+    case onboardingStarted
+    case onboardingStarterPath
+    case onboardingTargetPath
+    case onboardingManagedFilesReady
+    case onboardingCreatedConfig
+    case onboardingUsingExistingConfig
+    case onboardingAlreadyCompleted
+    case onboardingCurrentProfile
+    case onboardingCurrentSkills
+    case onboardingCurrentWorkflows
+    case onboardingUseForceToRerun
+    case onboardingCompleted
+    case onboardingConfigReady
+    case onboardingGeneratedFilesHeader
+    case onboardingHowAgentsUseThisHeader
+    case onboardingHowAgentsUseThisLine1
+    case onboardingHowAgentsUseThisLine2
+    case onboardingNextStepsHeader
+    case onboardingNextStepReviewConfig
+    case onboardingNextStepReviewAgents
+    case onboardingNextStepAgentRoot
+    case onboardingConfigPromptHeader
+    case onboardingPromptProjectName
+    case onboardingPromptWatchCompanion
+    case onboardingPromptUIFramework
+    case onboardingPromptArchitectureStyle
+    case onboardingPromptNetworkLayerName
+    case onboardingPromptPersistenceLayerName
+    case onboardingPromptLoggingSystem
+    case onboardingPromptBuildCommand
+    case onboardingPromptTestCommand
+    case onboardingPromptBooleanRetry
+    case onboardingSkillSummaryFallback
     case unexpectedPositionalsInstall
     case installRequiresTarget
     case targetRepositoryMustDiffer
@@ -87,7 +123,9 @@ enum SwiftNestMessageKey: Hashable {
     case chooseProfileNumberPrompt
     case profileChoiceOutOfRange
     case availableSkillsHeader
+    case availableWorkflowsHeader
     case selectSkillsPrompt
+    case selectWorkflowsPrompt
     case invalidSelection
     case selectionOutOfRange
     case expectedFileButFoundDirectory
@@ -100,6 +138,7 @@ enum SwiftNestMessageKey: Hashable {
     case warningDocsAlreadyExists
     case warningAIHarnessAlreadyExists
     case usageTopLevel
+    case usageOnboard
     case usageInstall
     case usageInit
     case usageUpgrade
@@ -148,7 +187,7 @@ enum SwiftNestLocalizer {
             .errorPrefix: "error",
             .wrapperSwiftRequired: "swift is required to build the SwiftNest CLI on macOS.",
             .homebrewBootstrapOnlyLine1: "error: the Homebrew-installed swiftnest command only bootstraps repositories.",
-            .homebrewBootstrapOnlyLine2: "Run 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository.",
+            .homebrewBootstrapOnlyLine2: "Run 'swiftnest onboard --target <path>' or 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository.",
             .unsupportedLanguageOption: "Unsupported language value for --lang: %@. Supported values: %@.",
             .unsupportedLanguageEnvironment: "Unsupported language value for SWIFTNEST_LANG: %@. Supported values: %@.",
             .missingValueForOption: "Missing value for %@.",
@@ -158,6 +197,42 @@ enum SwiftNestLocalizer {
             .unknownProfile: "Unknown profile: %@",
             .noStateFile: "No .ai-harness/state.json found. Run init first.",
             .unknownCommand: "Unknown command: %@",
+            .unexpectedPositionalsOnboard: "Unexpected positional arguments for onboard: %@",
+            .onboardingRequiresTargetOutsideRepository: "onboard requires --target <path> when you are not already inside a SwiftNest-managed repository.",
+            .onboardingStarterCheckoutRequiresTarget: "Running onboard from the SwiftNest starter checkout requires --target <path> so the target app repository is updated instead of the starter itself.",
+            .onboardingStarted: "Starting SwiftNest onboarding for %@",
+            .onboardingStarterPath: "Starter root: %@",
+            .onboardingTargetPath: "Target repository: %@",
+            .onboardingManagedFilesReady: "SwiftNest-managed files are already present in %@",
+            .onboardingCreatedConfig: "Created onboarding config: %@",
+            .onboardingUsingExistingConfig: "Using existing onboarding config: %@",
+            .onboardingAlreadyCompleted: "SwiftNest is already onboarded in %@.",
+            .onboardingCurrentProfile: "Profile: %@",
+            .onboardingCurrentSkills: "Skills: %@",
+            .onboardingCurrentWorkflows: "Workflows: %@",
+            .onboardingUseForceToRerun: "Re-run with --force to regenerate docs and state.",
+            .onboardingCompleted: "SwiftNest onboarding completed for %@.",
+            .onboardingConfigReady: "Config file: %@",
+            .onboardingGeneratedFilesHeader: "Generated files:",
+            .onboardingHowAgentsUseThisHeader: "How agents use this setup:",
+            .onboardingHowAgentsUseThisLine1: "- Agents should read AGENTS.md first, then follow Docs/AI_RULES.md, Docs/AI_WORKFLOWS.md, and Docs/AI_SKILLS/*.",
+            .onboardingHowAgentsUseThisLine2: "- The rendered context and workflow files under .ai-harness/ keep later agent runs aligned with the selected profile and workflows.",
+            .onboardingNextStepsHeader: "Recommended next steps:",
+            .onboardingNextStepReviewConfig: "- Review %@ and adjust project-specific values if needed.",
+            .onboardingNextStepReviewAgents: "- Review AGENTS.md to confirm the generated operating instructions.",
+            .onboardingNextStepAgentRoot: "- Start your AI task from %@ so the repository-local ./swiftnest and generated docs are available.",
+            .onboardingConfigPromptHeader: "Create config/project.yaml for this repository. Press Enter to accept inferred defaults.",
+            .onboardingPromptProjectName: "Project name",
+            .onboardingPromptWatchCompanion: "Include a watchOS companion line",
+            .onboardingPromptUIFramework: "UI framework",
+            .onboardingPromptArchitectureStyle: "Architecture style",
+            .onboardingPromptNetworkLayerName: "Networking boundary",
+            .onboardingPromptPersistenceLayerName: "Persistence boundary",
+            .onboardingPromptLoggingSystem: "Logging system",
+            .onboardingPromptBuildCommand: "Build command",
+            .onboardingPromptTestCommand: "Test command",
+            .onboardingPromptBooleanRetry: "Please answer with yes or no.",
+            .onboardingSkillSummaryFallback: "Review the generated skill file for details.",
             .unexpectedPositionalsInstall: "Unexpected positional arguments for install: %@",
             .installRequiresTarget: "install requires --target <path>.",
             .targetRepositoryMustDiffer: "Target repository must be different from the starter repository root.",
@@ -195,10 +270,12 @@ enum SwiftNestLocalizer {
             .unknownOption: "Unknown option: %@",
             .unknownSkillTemplate: "Unknown skill template: %@",
             .profilesHeader: "Profiles:",
-            .chooseProfileNumberPrompt: "Choose profile number (default 1): ",
+            .chooseProfileNumberPrompt: "Choose profile number (default %@): ",
             .profileChoiceOutOfRange: "Profile choice out of range",
             .availableSkillsHeader: "Available skills:",
+            .availableWorkflowsHeader: "Available workflows:",
             .selectSkillsPrompt: "Select skills by comma-separated numbers (Enter for defaults): ",
+            .selectWorkflowsPrompt: "Select optional workflows by comma-separated numbers (Enter for defaults): ",
             .invalidSelection: "Invalid selection: %@",
             .selectionOutOfRange: "Selection out of range: %@",
             .expectedFileButFoundDirectory: "Expected file but found directory at target path: %@",
@@ -214,6 +291,7 @@ enum SwiftNestLocalizer {
             usage: swiftnest [--lang <en|ko>] <command> [options]
 
             Commands:
+              onboard        Install, configure, and initialize SwiftNest for a repository
               install        Install SwiftNest-managed files into a target repository
               init           Initialize docs from config, profile, and skills
               upgrade        Upgrade to a stricter profile
@@ -222,8 +300,9 @@ enum SwiftNestLocalizer {
               list-skills    List available skills
               list-profiles  List available profiles
             """,
+            .usageOnboard: "usage: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive] [--force]",
             .usageInstall: "usage: swiftnest [--lang <en|ko>] install --target <path> [--force] [--dry-run]",
-            .usageInit: "usage: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--non-interactive]",
+            .usageInit: "usage: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive]",
             .usageUpgrade: "usage: swiftnest [--lang <en|ko>] upgrade --to <profile>",
             .usageWorkflow: """
             usage: swiftnest [--lang <en|ko>] workflow <subcommand> [options]
@@ -244,7 +323,7 @@ enum SwiftNestLocalizer {
             .errorPrefix: "오류",
             .wrapperSwiftRequired: "macOS에서 SwiftNest CLI를 빌드하려면 swift가 필요합니다.",
             .homebrewBootstrapOnlyLine1: "오류: Homebrew로 설치한 swiftnest 명령은 저장소 부트스트랩 용도로만 사용할 수 있습니다.",
-            .homebrewBootstrapOnlyLine2: "먼저 'swiftnest install --target <path>'를 실행한 뒤, 대상 저장소에서 './swiftnest ...'를 사용하세요.",
+            .homebrewBootstrapOnlyLine2: "먼저 'swiftnest onboard --target <path>' 또는 'swiftnest install --target <path>'를 실행한 뒤, 대상 저장소에서 './swiftnest ...'를 사용하세요.",
             .unsupportedLanguageOption: "--lang에 지원하지 않는 언어 값이 지정되었습니다: %@. 지원 값: %@.",
             .unsupportedLanguageEnvironment: "SWIFTNEST_LANG에 지원하지 않는 언어 값이 지정되었습니다: %@. 지원 값: %@.",
             .missingValueForOption: "%@ 옵션에 필요한 값이 없습니다.",
@@ -254,6 +333,42 @@ enum SwiftNestLocalizer {
             .unknownProfile: "알 수 없는 프로필입니다: %@",
             .noStateFile: ".ai-harness/state.json을 찾을 수 없습니다. 먼저 init을 실행하세요.",
             .unknownCommand: "알 수 없는 명령입니다: %@",
+            .unexpectedPositionalsOnboard: "onboard 명령에 예상하지 못한 위치 인자가 있습니다: %@",
+            .onboardingRequiresTargetOutsideRepository: "아직 SwiftNest가 설치되지 않은 위치에서 onboard를 실행하려면 --target <path>가 필요합니다.",
+            .onboardingStarterCheckoutRequiresTarget: "SwiftNest 스타터 체크아웃에서 onboard를 실행할 때는 스타터 자체가 아니라 대상 앱 저장소를 갱신하도록 --target <path>가 필요합니다.",
+            .onboardingStarted: "%@에 대한 SwiftNest 온보딩을 시작합니다",
+            .onboardingStarterPath: "스타터 루트: %@",
+            .onboardingTargetPath: "대상 저장소: %@",
+            .onboardingManagedFilesReady: "%@에는 이미 SwiftNest 관리 파일이 있습니다",
+            .onboardingCreatedConfig: "온보딩 설정 파일을 만들었습니다: %@",
+            .onboardingUsingExistingConfig: "기존 온보딩 설정 파일을 사용합니다: %@",
+            .onboardingAlreadyCompleted: "%@에는 이미 SwiftNest 온보딩이 완료되어 있습니다.",
+            .onboardingCurrentProfile: "프로필: %@",
+            .onboardingCurrentSkills: "스킬: %@",
+            .onboardingCurrentWorkflows: "워크플로: %@",
+            .onboardingUseForceToRerun: "--force와 함께 다시 실행하면 문서와 상태를 다시 생성합니다.",
+            .onboardingCompleted: "%@에 대한 SwiftNest 온보딩을 완료했습니다.",
+            .onboardingConfigReady: "설정 파일: %@",
+            .onboardingGeneratedFilesHeader: "생성된 파일:",
+            .onboardingHowAgentsUseThisHeader: "에이전트는 이 구성을 이렇게 사용합니다:",
+            .onboardingHowAgentsUseThisLine1: "- 에이전트는 먼저 AGENTS.md를 읽고, 이어서 Docs/AI_RULES.md, Docs/AI_WORKFLOWS.md, Docs/AI_SKILLS/*를 따릅니다.",
+            .onboardingHowAgentsUseThisLine2: "- .ai-harness/ 아래의 rendered context와 workflow 파일이 이후 작업을 선택한 프로필과 워크플로에 맞춰 정렬합니다.",
+            .onboardingNextStepsHeader: "권장 다음 단계:",
+            .onboardingNextStepReviewConfig: "- %@를 열어 프로젝트별 값을 검토하거나 수정하세요.",
+            .onboardingNextStepReviewAgents: "- 생성된 운영 지침이 맞는지 AGENTS.md를 검토하세요.",
+            .onboardingNextStepAgentRoot: "- %@ 루트에서 AI 작업을 시작하면 repo-local ./swiftnest와 생성된 문서를 바로 사용할 수 있습니다.",
+            .onboardingConfigPromptHeader: "이 저장소용 config/project.yaml을 만듭니다. Enter를 누르면 추론한 기본값을 사용합니다.",
+            .onboardingPromptProjectName: "프로젝트 이름",
+            .onboardingPromptWatchCompanion: "watchOS companion 라인 포함",
+            .onboardingPromptUIFramework: "UI 프레임워크",
+            .onboardingPromptArchitectureStyle: "아키텍처 스타일",
+            .onboardingPromptNetworkLayerName: "네트워크 경계",
+            .onboardingPromptPersistenceLayerName: "영속성 경계",
+            .onboardingPromptLoggingSystem: "로깅 시스템",
+            .onboardingPromptBuildCommand: "빌드 명령",
+            .onboardingPromptTestCommand: "테스트 명령",
+            .onboardingPromptBooleanRetry: "예 또는 아니오로 답해주세요.",
+            .onboardingSkillSummaryFallback: "자세한 내용은 생성된 스킬 문서를 확인하세요.",
             .unexpectedPositionalsInstall: "install 명령에 예상하지 못한 위치 인자가 있습니다: %@",
             .installRequiresTarget: "install 명령에는 --target <path>가 필요합니다.",
             .targetRepositoryMustDiffer: "대상 저장소는 스타터 저장소 루트와 달라야 합니다.",
@@ -291,10 +406,12 @@ enum SwiftNestLocalizer {
             .unknownOption: "알 수 없는 옵션입니다: %@",
             .unknownSkillTemplate: "알 수 없는 스킬 템플릿입니다: %@",
             .profilesHeader: "프로필:",
-            .chooseProfileNumberPrompt: "프로필 번호를 선택하세요 (기본값 1): ",
+            .chooseProfileNumberPrompt: "프로필 번호를 선택하세요 (기본값 %@): ",
             .profileChoiceOutOfRange: "프로필 선택이 범위를 벗어났습니다",
             .availableSkillsHeader: "사용 가능한 스킬:",
+            .availableWorkflowsHeader: "사용 가능한 워크플로:",
             .selectSkillsPrompt: "쉼표로 구분된 번호로 스킬을 선택하세요 (Enter 입력 시 기본값 사용): ",
+            .selectWorkflowsPrompt: "쉼표로 구분된 번호로 워크플로를 선택하세요 (Enter 입력 시 기본값 사용): ",
             .invalidSelection: "잘못된 선택입니다: %@",
             .selectionOutOfRange: "선택이 범위를 벗어났습니다: %@",
             .expectedFileButFoundDirectory: "대상 경로에서 파일이 와야 할 자리에 디렉터리가 있습니다: %@",
@@ -310,6 +427,7 @@ enum SwiftNestLocalizer {
             사용법: swiftnest [--lang <en|ko>] <command> [options]
 
             명령:
+              onboard        저장소에 SwiftNest를 설치, 설정, 초기화
               install        대상 저장소에 SwiftNest 관리 파일 설치
               init           설정, 프로필, 스킬로 문서 초기화
               upgrade        더 엄격한 프로필로 업그레이드
@@ -318,8 +436,9 @@ enum SwiftNestLocalizer {
               list-skills    사용 가능한 스킬 나열
               list-profiles  사용 가능한 프로필 나열
             """,
+            .usageOnboard: "사용법: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive] [--force]",
             .usageInstall: "사용법: swiftnest [--lang <en|ko>] install --target <path> [--force] [--dry-run]",
-            .usageInit: "사용법: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--non-interactive]",
+            .usageInit: "사용법: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive]",
             .usageUpgrade: "사용법: swiftnest [--lang <en|ko>] upgrade --to <profile>",
             .usageWorkflow: """
             사용법: swiftnest [--lang <en|ko>] workflow <subcommand> [options]

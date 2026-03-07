@@ -93,7 +93,7 @@ class Swiftnest < Formula
       command_name="$(first_non_lang_arg "$@")"
 
       case "$command_name" in
-        ""|-h|--help|help|install|list-skills|list-profiles)
+        ""|-h|--help|help|onboard|install|list-skills|list-profiles)
           export SWIFTNEST_ROOT="#{libexec}"
           exec "#{libexec}/bin/swiftnest" "$@"
           ;;
@@ -102,11 +102,11 @@ class Swiftnest < Formula
       case "$(resolve_lang "$@")" in
         ko)
           echo "오류: Homebrew로 설치한 swiftnest 명령은 저장소 부트스트랩 용도로만 사용할 수 있습니다." >&2
-          echo "먼저 'swiftnest install --target <path>'를 실행한 뒤, 대상 저장소에서 './swiftnest ...'를 사용하세요." >&2
+          echo "먼저 'swiftnest onboard --target <path>' 또는 'swiftnest install --target <path>'를 실행한 뒤, 대상 저장소에서 './swiftnest ...'를 사용하세요." >&2
           ;;
         *)
           echo "error: the Homebrew-installed swiftnest command only bootstraps repositories." >&2
-          echo "Run 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository." >&2
+          echo "Run 'swiftnest onboard --target <path>' or 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository." >&2
           ;;
       esac
       exit 1
@@ -119,9 +119,12 @@ class Swiftnest < Formula
     assert_match "개인 프로젝트", shell_output("SWIFTNEST_LANG=ko #{bin}/swiftnest list-profiles")
 
     target = testpath/"sample-repo"
-    system "#{bin}/swiftnest", "--lang", "ko", "install", "--target", target
+    system "#{bin}/swiftnest", "--lang", "ko", "onboard", "--target", target, "--non-interactive"
 
     assert_predicate target/"swiftnest", :exist?
+    assert_predicate target/"config/project.yaml", :exist?
+    assert_predicate target/"AGENTS.md", :exist?
+    assert_predicate target/".ai-harness/state.json", :exist?
     assert_predicate target/"profiles/advanced.yaml", :exist?
     assert_predicate target/"templates/Docs/AI_RULES.md", :exist?
     assert_predicate target/"tools/swiftnest-cli/Sources/SwiftNestCLI.swift", :exist?

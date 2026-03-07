@@ -20,6 +20,13 @@ list-skills:
 list-profiles:
 	$(SWIFTNEST) list-profiles
 
+onboard:
+	@if [ -n "$(TARGET)" ]; then \
+		$(SWIFTNEST) onboard --target "$(TARGET)" --config $(CONFIG); \
+	else \
+		$(SWIFTNEST) onboard --config $(CONFIG); \
+	fi
+
 init:
 	$(SWIFTNEST) init --config $(CONFIG)
 

@@ -81,6 +81,9 @@ struct SwiftNestRepository {
     var configURL: URL { rootURL.appendingPathComponent("config", isDirectory: true) }
     var stateDirectoryURL: URL { rootURL.appendingPathComponent(".ai-harness", isDirectory: true) }
     var stateFileURL: URL { stateDirectoryURL.appendingPathComponent("state.json") }
+    var isStarterCheckout: Bool {
+        fileManager.fileExists(atPath: rootURL.appendingPathComponent("packaging/homebrew/swiftnest.rb.template").path)
+    }
 
     static func locate() throws -> SwiftNestRepository {
         let environment = ProcessInfo.processInfo.environment
@@ -114,7 +117,7 @@ struct SwiftNestRepository {
         throw SwiftNestError(SwiftNestLocalizer.text(.couldNotLocateRepositoryRoot))
     }
 
-    private static func isRepositoryRoot(_ url: URL) -> Bool {
+    static func isRepositoryRoot(_ url: URL) -> Bool {
         let fileManager = FileManager.default
         return fileManager.fileExists(atPath: url.appendingPathComponent("templates/Docs/AI_RULES.md").path)
             && fileManager.fileExists(atPath: url.appendingPathComponent("profiles").path)
@@ -217,6 +220,17 @@ enum SwiftNestCLI {
         let remaining = Array(arguments.dropFirst())
 
         switch command {
+        case "onboard":
+            let parsed = try parse(
+                remaining,
+                valueOptions: ["--target", "--config", "--profile", "--skills", "--workflows"],
+                flagOptions: ["--non-interactive", "--force", "--help", "-h"]
+            )
+            if parsed.contains("--help") || parsed.contains("-h") {
+                printOnboardUsage()
+                return
+            }
+            try runOnboard(parsed: parsed, repository: repository)
         case "install":
             let parsed = try parse(remaining, valueOptions: ["--target"], flagOptions: ["--force", "--dry-run", "--help", "-h"])
             if parsed.contains("--help") || parsed.contains("-h") {
@@ -225,7 +239,11 @@ enum SwiftNestCLI {
             }
             try runInstall(parsed: parsed, repository: repository)
         case "init":
-            let parsed = try parse(remaining, valueOptions: ["--config", "--profile", "--skills"], flagOptions: ["--non-interactive", "--help", "-h"])
+            let parsed = try parse(
+                remaining,
+                valueOptions: ["--config", "--profile", "--skills", "--workflows"],
+                flagOptions: ["--non-interactive", "--help", "-h"]
+            )
             if parsed.contains("--help") || parsed.contains("-h") {
                 printInitUsage()
                 return
@@ -297,8 +315,7 @@ enum SwiftNestCLI {
         if !parsed.contains("--dry-run") {
             print(SwiftNestLocalizer.text(.nextSteps))
             print("  cd \(targetURL.path)")
-            print("  test -f config/project.yaml || cp config/project.example.yaml config/project.yaml")
-            print(SwiftNestLocalizer.text(.editProjectConfig))
+            print("  ./swiftnest onboard --config config/project.yaml")
             print("  ./swiftnest init --config config/project.yaml --profile intermediate")
         }
     }
@@ -316,66 +333,33 @@ enum SwiftNestCLI {
 
         let configURL = URL(fileURLWithPath: configValue, relativeTo: repository.rootURL).standardizedFileURL
         let config = try HarnessDocumentLoader.loadObject(at: configURL)
+        let interactive = shouldRunInteractively(parsed: parsed)
 
-        let profileName = try parsed.value(for: "--profile") ?? chooseProfileInteractively(repository: repository)
+        let profileName = try resolveOnboardingProfile(parsed: parsed, repository: repository, interactive: interactive)
         let profile = try HarnessDocumentLoader.loadObject(at: repository.profileURL(named: profileName))
         let defaultSkills = HarnessDocumentLoader.stringArray(profile, key: "default_skills")
-
-        let skills: [String]
-        if let rawSkills = parsed.value(for: "--skills"), !rawSkills.isEmpty {
-            skills = Array(Set(rawSkills.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })).sorted()
-        } else if parsed.contains("--non-interactive") {
-            skills = defaultSkills
-        } else {
-            skills = try chooseSkillsInteractively(defaultSkills: defaultSkills, repository: repository)
-        }
-
-        let workflows = defaultWorkflowNames
-        let context = mergedContext(
-            base: try normalizeContext(config: config, profileName: profileName),
-            extra: workflowContext(config: config, skills: skills, workflows: workflows)
+        let skills = try resolveOnboardingSkills(
+            parsed: parsed,
+            defaultSkills: defaultSkills,
+            repository: repository,
+            interactive: interactive
         )
-        try writeDocs(context: context, skills: skills, profileName: profileName, repository: repository)
-        let renderedWorkflows = try scaffoldWorkflowFiles(
+        let workflows = try resolveOnboardingWorkflows(
+            parsed: parsed,
+            interactive: interactive,
+            repository: repository
+        )
+        let state = try initializeHarness(
             config: config,
+            configURL: configURL,
             profileName: profileName,
             skills: skills,
             workflows: workflows,
             repository: repository
         )
-        try writeAgentsFile(
-            config: config,
-            profileName: profileName,
-            skills: skills,
-            workflows: renderedWorkflows,
-            repository: repository
-        )
-        let contextURL = try renderContextBundle(
-            profileName: profileName,
-            skills: skills,
-            workflows: renderedWorkflows,
-            repository: repository
-        )
-
-        try repository.fileManager.createDirectory(at: repository.stateDirectoryURL, withIntermediateDirectories: true)
-        let selectedProfileURL = repository.stateDirectoryURL.appendingPathComponent("selected_profile.yaml")
-        let selectedSkillsURL = repository.stateDirectoryURL.appendingPathComponent("selected_skills.txt")
-        let profileSourceURL = try repository.profileURL(named: profileName)
-        let profileText = try String(contentsOf: profileSourceURL, encoding: .utf8)
-        try profileText.write(to: selectedProfileURL, atomically: true, encoding: .utf8)
-        try (skills.joined(separator: "\n") + "\n").write(to: selectedSkillsURL, atomically: true, encoding: .utf8)
-
-        let state = SwiftNestState(
-            profile: profileName,
-            skills: skills,
-            workflows: renderedWorkflows,
-            configPath: repository.serializeStatePath(configURL),
-            contextPath: repository.serializeStatePath(contextURL)
-        )
-        try repository.saveState(state)
 
         print(SwiftNestLocalizer.text(.initializedSwiftNest, profileName, skills.joined(separator: ", ")))
-        print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
+        print(SwiftNestLocalizer.text(.renderedContext, repository.resolveStatePath(state.contextPath).path))
     }
 
     static func runUpgrade(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
@@ -797,19 +781,26 @@ enum SwiftNestCLI {
         return outputURL
     }
 
-    static func chooseProfileInteractively(repository: SwiftNestRepository) throws -> String {
-        let profiles = try repository.availableProfiles().map { $0.deletingPathExtension().lastPathComponent }
-        print(SwiftNestLocalizer.text(.profilesHeader))
-        for (index, name) in profiles.enumerated() {
-            print("  \(index + 1). \(name)")
+    static func chooseProfileInteractively(
+        repository: SwiftNestRepository,
+        defaultProfileName: String = defaultOnboardingProfileName
+    ) throws -> String {
+        let profiles = try repository.availableProfiles().map { profileURL -> (String, String) in
+            let data = try HarnessDocumentLoader.loadObject(at: profileURL)
+            return (profileURL.deletingPathExtension().lastPathComponent, localizedProfileDescription(from: data))
         }
-        print(SwiftNestLocalizer.text(.chooseProfileNumberPrompt), terminator: "")
+        print(SwiftNestLocalizer.text(.profilesHeader))
+        for (index, profile) in profiles.enumerated() {
+            print("  \(index + 1). \(profile.0) — \(profile.1)")
+        }
+        let defaultNumber = profiles.firstIndex { $0.0 == defaultProfileName }.map { String($0 + 1) } ?? "1"
+        print(SwiftNestLocalizer.text(.chooseProfileNumberPrompt, defaultNumber), terminator: "")
         let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let chosen = raw.isEmpty ? "1" : raw
+        let chosen = raw.isEmpty ? defaultNumber : raw
         guard let number = Int(chosen), profiles.indices.contains(number - 1) else {
             throw SwiftNestError(SwiftNestLocalizer.text(.profileChoiceOutOfRange))
         }
-        return profiles[number - 1]
+        return profiles[number - 1].0
     }
 
     static func chooseSkillsInteractively(defaultSkills: [String], repository: SwiftNestRepository) throws -> [String] {
@@ -817,12 +808,13 @@ enum SwiftNestCLI {
         print(SwiftNestLocalizer.text(.availableSkillsHeader))
         for (index, skill) in skills.enumerated() {
             let mark = defaultSkills.contains(skill) ? "*" : " "
-            print(String(format: "  %2d. [%@] %@", index + 1, mark, skill))
+            let summary = skillSummary(named: skill, repository: repository)
+            print(String(format: "  %2d. [%@] %@ — %@", index + 1, mark, skill, summary))
         }
         print(SwiftNestLocalizer.text(.selectSkillsPrompt), terminator: "")
         let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if raw.isEmpty {
-            return defaultSkills
+            return defaultSkills.sorted()
         }
 
         var chosen: [String] = []
@@ -962,6 +954,10 @@ enum SwiftNestCLI {
 
     static func printInstallUsage() {
         print(SwiftNestLocalizer.text(.usageInstall))
+    }
+
+    static func printOnboardUsage() {
+        print(SwiftNestLocalizer.text(.usageOnboard))
     }
 
     static func printInitUsage() {

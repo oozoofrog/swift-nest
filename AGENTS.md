@@ -47,7 +47,7 @@ When a feature affects starter contents or Homebrew-visible behavior, finish the
 3. Download the matching GitHub tag archive and compute its SHA256.
 4. Render `packaging/homebrew/swiftnest.rb.template` into the tap repository as `Formula/swiftnest.rb`.
 5. Commit and push the updated formula in `oozoofrog/homebrew-swiftnest` (or the active tap repo).
-6. Verify with `brew install swiftnest`, `brew test swiftnest`, and at least one smoke test such as `swiftnest install --target <repo>` or `swiftnest --lang ko list-profiles`.
+6. Verify with `brew install swiftnest`, `brew test swiftnest`, and at least one smoke test such as `swiftnest onboard --target <repo>` or `swiftnest --lang ko list-profiles`.
 
 ## Completion Expectations
 - Summarize files changed.
