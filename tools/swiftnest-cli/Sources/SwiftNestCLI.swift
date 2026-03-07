@@ -136,10 +136,10 @@ struct SwiftNestRepository {
         throw SwiftNestError(SwiftNestLocalizer.text(.couldNotLocateAssetRoot))
     }
 
-    static func locateManagedRepository(
+    static func findManagedRepository(
         assetRootURL: URL,
         currentDirectoryPath: String = FileManager.default.currentDirectoryPath
-    ) throws -> SwiftNestRepository {
+    ) -> SwiftNestRepository? {
         var current = URL(fileURLWithPath: currentDirectoryPath, isDirectory: true)
             .resolvingSymlinksInPath()
             .standardizedFileURL
@@ -158,6 +158,20 @@ struct SwiftNestRepository {
                 break
             }
             current = parent
+        }
+
+        return nil
+    }
+
+    static func locateManagedRepository(
+        assetRootURL: URL,
+        currentDirectoryPath: String = FileManager.default.currentDirectoryPath
+    ) throws -> SwiftNestRepository {
+        if let repository = findManagedRepository(
+            assetRootURL: assetRootURL,
+            currentDirectoryPath: currentDirectoryPath
+        ) {
+            return repository
         }
 
         throw SwiftNestError(SwiftNestLocalizer.text(.couldNotLocateRepositoryRoot))
@@ -238,6 +252,8 @@ struct SwiftNestRepository {
 }
 
 enum SwiftNestCLI {
+    // data version 1: repo-local CLI bootstrap installation
+    // data version 2: global runtime with asset-root / managed-repo separation
     static let currentDataVersion = 2
     static let profileGuidance: [String: String] = [
         "basic": "- Keep output concise and implementation-focused.\n- Prefer minimal abstractions.\n- Do not add extra process unless the task clearly benefits.",
@@ -727,13 +743,13 @@ enum SwiftNestCLI {
 
     static func currentWorkflowSet(repository: SwiftNestRepository) throws -> [String] {
         let availableNames = availableWorkflowNames(repository: repository)
-        if repository.fileManager.fileExists(atPath: repository.stateFileURL.path) {
-            try migrateRepositoryStateIfNeeded(repository: repository)
+        guard repository.fileManager.fileExists(atPath: repository.stateFileURL.path) else {
+            return defaultWorkflowNames.filter { availableNames.contains($0) }
         }
-        if let state = try? repository.loadState() {
-            return normalizedWorkflowNames(state.workflows).filter { availableNames.contains($0) }
-        }
-        return defaultWorkflowNames.filter { availableNames.contains($0) }
+
+        try migrateRepositoryStateIfNeeded(repository: repository)
+        let state = try repository.loadState()
+        return normalizedWorkflowNames(state.workflows).filter { availableNames.contains($0) }
     }
 
     static func currentWorkflowSet(
@@ -763,7 +779,7 @@ enum SwiftNestCLI {
     }
 
     static func defaultWorkflowsForInit(repository: SwiftNestRepository) -> [String] {
-        return defaultWorkflowNames.filter { workflowTemplateExists(named: $0, repository: repository) }
+        defaultWorkflowNames.filter { workflowTemplateExists(named: $0, repository: repository) }
     }
 
     static func parse(_ args: [String], valueOptions: Set<String>, flagOptions: Set<String>) throws -> ParsedArguments {
@@ -835,6 +851,7 @@ enum SwiftNestCLI {
         let fileManager = repository.fileManager
         let docsURL = repository.rootURL.appendingPathComponent("Docs", isDirectory: true)
         let skillsURL = docsURL.appendingPathComponent("AI_SKILLS", isDirectory: true)
+        let manifestURL = skillsURL.appendingPathComponent(".generated_manifest.json")
         try fileManager.createDirectory(at: docsURL, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: skillsURL, withIntermediateDirectories: true)
 
@@ -845,18 +862,7 @@ enum SwiftNestCLI {
             try renderString(template, context: context).write(to: destinationURL, atomically: true, encoding: .utf8)
         }
 
-        let manifestURL = skillsURL.appendingPathComponent(".generated_manifest.json")
-        if fileManager.fileExists(atPath: manifestURL.path) {
-            let data = try? Data(contentsOf: manifestURL)
-            if let data, let manifest = try? JSONDecoder().decode(SwiftNestGeneratedManifest.self, from: data) {
-                for fileName in manifest.files {
-                    let generatedURL = skillsURL.appendingPathComponent(fileName)
-                    if fileManager.fileExists(atPath: generatedURL.path) {
-                        try? fileManager.removeItem(at: generatedURL)
-                    }
-                }
-            }
-        }
+        try cleanupGeneratedSkillFilesIfNeeded(skillsURL: skillsURL, fileManager: fileManager)
 
         var generatedFiles: [String] = []
         for skill in skills {
@@ -875,6 +881,25 @@ enum SwiftNestCLI {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(manifest)
         try data.write(to: manifestURL)
+    }
+
+    static func cleanupGeneratedSkillFilesIfNeeded(
+        skillsURL: URL,
+        fileManager: FileManager
+    ) throws {
+        let manifestURL = skillsURL.appendingPathComponent(".generated_manifest.json")
+        guard fileManager.fileExists(atPath: manifestURL.path) else {
+            return
+        }
+
+        let data = try Data(contentsOf: manifestURL)
+        let manifest = try JSONDecoder().decode(SwiftNestGeneratedManifest.self, from: data)
+        for fileName in manifest.files {
+            let generatedURL = skillsURL.appendingPathComponent(fileName)
+            if fileManager.fileExists(atPath: generatedURL.path) {
+                try fileManager.removeItem(at: generatedURL)
+            }
+        }
     }
 
     static func renderContextBundle(

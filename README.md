@@ -39,6 +39,7 @@ Docs/
     fix-bug.md
     refactor.md
     build.md
+    onboarding-review.md
 ```
 
 `Docs/` and `.ai-harness/` are first-class harness assets. Track them in version control by default.
@@ -50,16 +51,16 @@ To avoid overlapping bootstrap builds while developing the starter itself, the l
 
 If an agent only receives this GitHub link, the expected installation flow is:
 
-1. Clone or download this starter into a temporary directory.
-2. Run the global `swiftnest` command with `onboard` against the target app repository.
-3. Review the generated `config/project.yaml`, `AGENTS.md`, and `Docs/` output in the target repository.
-4. Start agent work from the target repository root.
-5. Commit the generated `Docs/` and `.ai-harness/` files in the target repository.
+1. Make sure the global `swiftnest` command is installed and available on `PATH`.
+2. Read the README from this repository first.
+3. Run the global `swiftnest` command with `onboard` against the target app repository.
+4. Review the generated `config/project.yaml`, `AGENTS.md`, and `Docs/` output in the target repository.
+5. Start agent work from the target repository root.
+6. Commit the generated `Docs/` and `.ai-harness/` files in the target repository.
 
 Example:
 
 ```bash
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
 swiftnest onboard \
   --target /path/to/current-ios-repo \
   --non-interactive
@@ -298,8 +299,8 @@ https://github.com/oozoofrog/swift-nest
 Your job is to install SwiftNest into the current iOS repository.
 
 Follow this process:
-1. Clone or download the starter repository into a temporary directory.
-2. Read the README from the starter repository first.
+1. Make sure the global `swiftnest` command is installed and available on `PATH`.
+2. Read the README from this repository first.
 3. Run the global command:
    swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
 4. Start the first follow-up review from ./.ai-harness/workflows/onboarding-review.md.

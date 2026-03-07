@@ -39,6 +39,7 @@ Docs/
     fix-bug.md
     refactor.md
     build.md
+    onboarding-review.md
 ```
 
 `Docs/` 와 `.ai-harness/` 는 하네스의 핵심 자산이므로 기본적으로 버전 관리에 포함하는 것을 권장합니다.
@@ -50,16 +51,16 @@ Docs/
 
 에이전트가 이 GitHub 링크만 받은 경우, 기대하는 설치 순서는 아래와 같습니다.
 
-1. 이 스타터를 임시 디렉터리에 clone 또는 download 합니다.
-2. 전역 `swiftnest` 명령으로 대상 앱 저장소에 `onboard` 를 실행합니다.
-3. 대상 저장소 안의 `config/project.yaml`, `AGENTS.md`, `Docs/` 생성 결과를 검토합니다.
-4. 대상 저장소 루트에서 에이전트 작업을 시작합니다.
-5. 대상 저장소에서 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
+1. 전역 `swiftnest` 명령이 설치되어 있고 `PATH` 에서 실행 가능한지 확인합니다.
+2. 이 저장소의 README를 먼저 읽습니다.
+3. 전역 `swiftnest` 명령으로 대상 앱 저장소에 `onboard` 를 실행합니다.
+4. 대상 저장소 안의 `config/project.yaml`, `AGENTS.md`, `Docs/` 생성 결과를 검토합니다.
+5. 대상 저장소 루트에서 에이전트 작업을 시작합니다.
+6. 대상 저장소에서 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
 
 예시:
 
 ```bash
-git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
 swiftnest onboard \
   --target /path/to/current-ios-repo \
   --non-interactive
@@ -292,30 +293,30 @@ templates/
 아래 프롬프트를 GitHub 링크와 함께 에이전트에게 전달할 수 있습니다.
 
 ```text
-Use this repository as the SwiftNest starter:
+이 저장소를 SwiftNest 스타터로 사용하세요:
 https://github.com/oozoofrog/swift-nest
 
-Your job is to install SwiftNest into the current iOS repository.
+당신의 작업은 현재 iOS 저장소에 SwiftNest를 설치하는 것입니다.
 
-Follow this process:
-1. Clone or download the starter repository into a temporary directory.
-2. Read the README from the starter repository first.
+다음 순서를 따르세요:
+1. 전역 `swiftnest` 명령이 설치되어 있고 `PATH` 에서 실행 가능한지 확인합니다.
+2. 이 저장소의 README를 먼저 읽습니다.
 3. 전역 명령을 실행합니다:
    swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
-4. Start the first follow-up review from ./.ai-harness/workflows/onboarding-review.md.
-5. Review config/project.yaml so it reflects the actual project state.
-6. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
-7. If needed, rerun swiftnest onboard or swiftnest init with explicit profile, skills, or workflows.
-8. Keep Docs/ and .ai-harness/ checked into the repository.
-9. Summarize the selected profile, selected skills, generated files, any workflow changes, and any assumptions.
+4. 첫 후속 검토는 `./.ai-harness/workflows/onboarding-review.md` 부터 시작합니다.
+5. `config/project.yaml` 이 실제 프로젝트 상태를 반영하는지 검토합니다.
+6. 생성된 `AGENTS.md`, `Docs/`, `.ai-harness/` 결과를 검토합니다.
+7. 필요하면 명시적인 profile, skills, workflows 옵션과 함께 `swiftnest onboard` 또는 `swiftnest init` 을 다시 실행합니다.
+8. `Docs/` 와 `.ai-harness/` 는 저장소에 계속 커밋 상태로 유지합니다.
+9. 선택한 profile, 선택한 skills, 생성된 파일, workflow 변경 사항, 가정을 요약합니다.
 
-Constraints:
-- Do not run swiftnest onboard or swiftnest init from the starter checkout when the goal is to modify the current repository.
-- Do not break the existing Xcode project structure.
-- Do not ignore .ai-harness/.
-- Prefer minimal, reviewable changes.
-- If Docs/ already exists, merge carefully instead of blindly overwriting unrelated files.
-- If .ai-harness/state.json already exists, treat it as the current harness state before rerendering or upgrading.
+제약사항:
+- 현재 저장소를 수정하는 목적이라면 스타터 체크아웃 안에서 `swiftnest onboard` 나 `swiftnest init` 을 실행하지 마세요.
+- 기존 Xcode 프로젝트 구조를 깨뜨리지 마세요.
+- `.ai-harness/` 를 무시하지 마세요.
+- 변경 범위는 작고 리뷰하기 쉽게 유지하세요.
+- `Docs/` 가 이미 존재한다면, 관련 없는 파일을 무조건 덮어쓰지 말고 주의해서 병합하세요.
+- `.ai-harness/state.json` 이 이미 존재한다면, 다시 렌더링하거나 업그레이드하기 전에 현재 하네스 상태로 취급하세요.
 ```
 
 이 프롬프트의 목적은 스타터 저장소를 SwiftNest의 기준점으로 삼되, 실제 앱 저장소 갱신은 전역 `swiftnest` 명령으로 수행하게 만드는 것입니다.

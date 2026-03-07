@@ -175,7 +175,13 @@ if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
   BINARY_PATH=$(find_binary || true)
   if [ -z "${BINARY_PATH:-}" ] || needs_build "$BINARY_PATH"; then
     BUILD_JOBS=$(resolve_build_jobs)
-    swift build --package-path "$TOOL_ROOT" -c release --jobs "$BUILD_JOBS" --product swiftnest >/dev/null
+    BUILD_LOG=$(mktemp "${TMPDIR:-/tmp}/swiftnest-build.XXXXXX")
+    if ! swift build --package-path "$TOOL_ROOT" -c release --jobs "$BUILD_JOBS" --product swiftnest >"$BUILD_LOG" 2>&1; then
+      cat "$BUILD_LOG" >&2
+      rm -f "$BUILD_LOG"
+      exit 1
+    fi
+    rm -f "$BUILD_LOG"
     BINARY_PATH=$(find_binary)
   fi
   release_build_lock

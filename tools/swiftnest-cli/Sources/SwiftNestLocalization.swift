@@ -46,6 +46,7 @@ enum SwiftNestMessageKey: Hashable {
     case couldNotDecodeUTF8Text
     case expectedTopLevelObject
     case unknownProfile
+    case noProfilesAvailable
     case noStateFile
     case unknownCommand
     case unexpectedPositionalsOnboard
@@ -201,6 +202,7 @@ enum SwiftNestLocalizer {
             .couldNotDecodeUTF8Text: "Could not decode UTF-8 text from %@.",
             .expectedTopLevelObject: "Expected a top-level object in %@.",
             .unknownProfile: "Unknown profile: %@",
+            .noProfilesAvailable: "No onboarding profiles are available in this SwiftNest installation.",
             .noStateFile: "No .ai-harness/state.json found. Run init first.",
             .unknownCommand: "Unknown command: %@",
             .unexpectedPositionalsOnboard: "Unexpected positional arguments for onboard: %@",
@@ -342,6 +344,7 @@ enum SwiftNestLocalizer {
             .couldNotDecodeUTF8Text: "%@에서 UTF-8 텍스트를 디코드할 수 없습니다.",
             .expectedTopLevelObject: "%@에서 최상위 객체를 기대했습니다.",
             .unknownProfile: "알 수 없는 프로필입니다: %@",
+            .noProfilesAvailable: "현재 SwiftNest 설치에서 사용할 수 있는 온보딩 프로필이 없습니다.",
             .noStateFile: ".ai-harness/state.json을 찾을 수 없습니다. 먼저 init을 실행하세요.",
             .unknownCommand: "알 수 없는 명령입니다: %@",
             .unexpectedPositionalsOnboard: "onboard 명령에 예상하지 못한 위치 인자가 있습니다: %@",

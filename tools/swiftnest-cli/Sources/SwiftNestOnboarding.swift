@@ -239,7 +239,7 @@ extension SwiftNestCLI {
             }
         }
 
-        if let currentRepository = try? SwiftNestRepository.locateManagedRepository(
+        if let currentRepository = SwiftNestRepository.findManagedRepository(
             assetRootURL: assetRootURL,
             currentDirectoryPath: resolvedCurrentDirectoryURL.path
         ) {
@@ -250,7 +250,12 @@ extension SwiftNestCLI {
     }
 
     static func resolveOnboardingConfigURL(_ rawPath: String?, targetRootURL: URL) -> URL {
-        let configPath = rawPath?.isEmpty == false ? rawPath! : "config/project.yaml"
+        let configPath: String
+        if let rawPath, !rawPath.isEmpty {
+            configPath = rawPath
+        } else {
+            configPath = "config/project.yaml"
+        }
         return URL(fileURLWithPath: configPath, relativeTo: targetRootURL).standardizedFileURL
     }
 
@@ -478,7 +483,7 @@ extension SwiftNestCLI {
         if let fallback = try repository.availableProfiles().first?.deletingPathExtension().lastPathComponent {
             return fallback
         }
-        return defaultOnboardingProfileName
+        throw SwiftNestError(SwiftNestLocalizer.text(.noProfilesAvailable))
     }
 
     static func resolveOnboardingSkills(

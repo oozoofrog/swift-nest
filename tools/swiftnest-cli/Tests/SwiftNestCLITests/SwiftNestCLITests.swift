@@ -612,6 +612,101 @@ final class SwiftNestCLITests: XCTestCase {
         }
     }
 
+    func testResolveOnboardingProfileThrowsWhenNoProfilesAreAvailable() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        let profilesURL = repositoryRoot.appendingPathComponent("profiles", isDirectory: true)
+        for profileURL in try FileManager.default.contentsOfDirectory(at: profilesURL, includingPropertiesForKeys: nil) {
+            try FileManager.default.removeItem(at: profileURL)
+        }
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.resolveOnboardingProfile(
+                parsed: ParsedArguments(values: [:], flags: ["--non-interactive"], positionals: []),
+                repository: SwiftNestRepository(rootURL: repositoryRoot),
+                interactive: false
+            )
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                "No onboarding profiles are available in this SwiftNest installation."
+            )
+        }
+    }
+
+    func testCurrentWorkflowSetThrowsWhenStateFileIsCorrupt() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot)
+        try FileManager.default.createDirectory(at: repository.stateDirectoryURL, withIntermediateDirectories: true)
+        try "{ invalid json".write(
+            to: repository.stateFileURL,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertThrowsError(try SwiftNestCLI.currentWorkflowSet(repository: repository))
+    }
+
+    func testRunRenderContextThrowsWhenStateDataVersionIsFromFutureVersion() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot)
+        let configURL = repositoryRoot.appendingPathComponent("config/project.yaml")
+        try String(contentsOf: repositoryRoot.appendingPathComponent("config/project.example.yaml"), encoding: .utf8)
+            .write(to: configURL, atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: repository.stateDirectoryURL, withIntermediateDirectories: true)
+        try """
+        {
+          "data_version": 999,
+          "profile": "intermediate",
+          "skills": ["ios-architecture"],
+          "workflows": ["add-feature", "fix-bug", "refactor", "build"],
+          "config_path": "config/project.yaml",
+          "context_path": ".ai-harness/rendered_context.md"
+        }
+        """.write(
+            to: repository.stateFileURL,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertThrowsError(try SwiftNestCLI.runRenderContext(repository: repository)) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                "Repository data version 999 is newer than this SwiftNest CLI supports (\(SwiftNestCLI.currentDataVersion)). Upgrade your global swiftnest installation."
+            )
+        }
+    }
+
+    func testWriteDocsThrowsWhenGeneratedManifestIsCorrupt() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot)
+        let docsSkillsURL = repositoryRoot.appendingPathComponent("Docs/AI_SKILLS", isDirectory: true)
+        try FileManager.default.createDirectory(at: docsSkillsURL, withIntermediateDirectories: true)
+        try "{ invalid manifest".write(
+            to: docsSkillsURL.appendingPathComponent(".generated_manifest.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let config = try HarnessDocumentLoader.loadObject(at: repositoryRoot.appendingPathComponent("config/project.example.yaml"))
+        let context = try SwiftNestCLI.normalizeContext(config: config, profileName: "intermediate")
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.writeDocs(
+                context: context,
+                skills: ["ios-architecture"],
+                profileName: "intermediate",
+                repository: repository
+            )
+        )
+    }
+
     func testRootWrapperUsesKoreanErrorWhenSwiftIsMissing() throws {
         let wrapperURL = repositoryRootURL().appendingPathComponent("swiftnest")
         let emptyBinDirectory = FileManager.default.temporaryDirectory
@@ -716,6 +811,62 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(stdout.contains("fake-swiftnest-ran"))
         XCTAssertTrue(loggedArguments.contains("--jobs"))
         XCTAssertTrue(loggedArguments.contains("1"))
+    }
+
+    func testRootWrapperPrintsBuildDiagnosticsWhenBuildFails() throws {
+        let fileManager = FileManager.default
+        let fixtureRoot = fileManager.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: fixtureRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: fixtureRoot.appendingPathComponent("tools/swiftnest-cli/Sources", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        let wrapperSourceURL = repositoryRootURL().appendingPathComponent("swiftnest")
+        let wrapperURL = fixtureRoot.appendingPathComponent("swiftnest")
+        try fileManager.copyItem(at: wrapperSourceURL, to: wrapperURL)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wrapperURL.path)
+        try "// fixture\n".write(
+            to: fixtureRoot.appendingPathComponent("tools/swiftnest-cli/Package.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let fakeBinDirectory = fixtureRoot.appendingPathComponent("fake-bin", isDirectory: true)
+        try fileManager.createDirectory(at: fakeBinDirectory, withIntermediateDirectories: true)
+        let fakeSwiftURL = fakeBinDirectory.appendingPathComponent("swift")
+        let fakeSwiftScript = """
+        #!/bin/sh
+        echo "fake-build-stdout"
+        echo "fake-build-stderr" >&2
+        exit 1
+        """
+        try fakeSwiftScript.write(to: fakeSwiftURL, atomically: true, encoding: .utf8)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeSwiftURL.path)
+
+        let process = Process()
+        process.executableURL = wrapperURL
+        process.arguments = ["--help"]
+        process.currentDirectoryURL = fixtureRoot
+
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = fakeBinDirectory.path + ":/usr/bin:/bin:/usr/sbin:/sbin"
+        process.environment = environment
+
+        let stderrPipe = Pipe()
+        process.standardError = stderrPipe
+        process.standardOutput = Pipe()
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stderrData = try stderrPipe.fileHandleForReading.readToEnd() ?? Data()
+        let stderr = String(decoding: stderrData, as: UTF8.self)
+
+        XCTAssertEqual(process.terminationStatus, 1)
+        XCTAssertTrue(stderr.contains("fake-build-stdout"))
+        XCTAssertTrue(stderr.contains("fake-build-stderr"))
     }
 
     func testRootMakefilePrefersLocalWrapperWhenAvailable() throws {

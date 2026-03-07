@@ -230,7 +230,7 @@ extension SwiftNestCLI {
         for definition in orderedWorkflowDefinitions() {
             let outputURL = outputDirectoryURL.appendingPathComponent("\(definition.name).md")
             if repository.fileManager.fileExists(atPath: outputURL.path) {
-                try? repository.fileManager.removeItem(at: outputURL)
+                try repository.fileManager.removeItem(at: outputURL)
             }
         }
 
