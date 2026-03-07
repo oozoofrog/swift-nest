@@ -4,8 +4,56 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 TOOL_ROOT="$SCRIPT_DIR/tools/swiftnest-cli"
 
+resolve_lang() {
+  explicit_lang=""
+  pending_lang_value=0
+
+  for arg in "$@"; do
+    if [ "$pending_lang_value" -eq 1 ]; then
+      explicit_lang=$arg
+      pending_lang_value=0
+      continue
+    fi
+
+    case "$arg" in
+      --lang)
+        pending_lang_value=1
+        ;;
+      --lang=*)
+        explicit_lang=${arg#--lang=}
+        ;;
+    esac
+  done
+
+  for candidate in "$explicit_lang" "${SWIFTNEST_LANG:-}" "${LC_ALL:-}" "${LC_MESSAGES:-}" "${LANG:-}"; do
+    case "$candidate" in
+      [Kk][Oo]|[Kk][Oo]_*|[Kk][Oo]-*)
+        printf 'ko'
+        return 0
+        ;;
+      [Ee][Nn]|[Ee][Nn]_*|[Ee][Nn]-*)
+        printf 'en'
+        return 0
+        ;;
+    esac
+  done
+
+  printf 'en'
+}
+
+localized_wrapper_swift_required() {
+  case "$(resolve_lang "$@")" in
+    ko)
+      printf '%s\n' '오류: macOS에서 SwiftNest CLI를 빌드하려면 swift가 필요합니다.'
+      ;;
+    *)
+      printf '%s\n' 'error: swift is required to build the SwiftNest CLI on macOS.'
+      ;;
+  esac
+}
+
 if ! command -v swift >/dev/null 2>&1; then
-  echo "error: swift is required to build the SwiftNest CLI on macOS." >&2
+  localized_wrapper_swift_required "$@" >&2
   exit 1
 fi
 

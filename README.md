@@ -368,6 +368,13 @@ make context
 make upgrade PROFILE=advanced
 ```
 
+Runtime output language can be selected with a global option or environment variable:
+
+```bash
+./swiftnest --lang ko --help
+SWIFTNEST_LANG=ko ./swiftnest workflow list
+```
+
 ## Publish Your Own Copy
 
 If you want to publish your own copy of this starter:

@@ -1,11 +1,15 @@
 import Foundation
 
 do {
-    try SwiftNestCLI.run(arguments: Array(CommandLine.arguments.dropFirst()))
+    let rawArguments = Array(CommandLine.arguments.dropFirst())
+    SwiftNestLocalizer.configure(language: SwiftNestLanguageResolver.defaultLanguage())
+    let resolvedInvocation = try SwiftNestLanguageResolver.resolve(arguments: rawArguments)
+    SwiftNestLocalizer.configure(language: resolvedInvocation.language)
+    try SwiftNestCLI.run(arguments: resolvedInvocation.arguments)
 } catch let error as SwiftNestError {
-    fputs("error: \(error.message)\n", stderr)
+    fputs("\(SwiftNestLocalizer.text(.errorPrefix)): \(error.message)\n", stderr)
     exit(1)
 } catch {
-    fputs("error: \(error.localizedDescription)\n", stderr)
+    fputs("\(SwiftNestLocalizer.text(.errorPrefix)): \(error.localizedDescription)\n", stderr)
     exit(1)
 }

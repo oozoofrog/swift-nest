@@ -368,6 +368,13 @@ make context
 make upgrade PROFILE=advanced
 ```
 
+런타임 출력 언어는 전역 옵션이나 환경변수로 고를 수 있습니다.
+
+```bash
+./swiftnest --lang ko --help
+SWIFTNEST_LANG=ko ./swiftnest workflow list
+```
+
 ## 자신의 사본 공개하기
 
 이 스타터를 기반으로 자신의 사본을 공개하려면:
