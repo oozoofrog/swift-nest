@@ -136,10 +136,11 @@ extension SwiftNestCLI {
             repository: targetRepository,
             interactive: interactive
         )
-        let workflows = try resolveOnboardingWorkflows(
+        let workflows = try resolveWorkflowSelection(
             parsed: parsed,
             interactive: interactive,
-            repository: targetRepository
+            repository: targetRepository,
+            defaultWorkflows: defaultOnboardingWorkflowNames
         )
 
         let result = try initializeHarness(
@@ -498,10 +499,11 @@ extension SwiftNestCLI {
         return defaultSkills.sorted()
     }
 
-    static func resolveOnboardingWorkflows(
+    static func resolveWorkflowSelection(
         parsed: ParsedArguments,
         interactive: Bool,
-        repository: SwiftNestRepository
+        repository: SwiftNestRepository,
+        defaultWorkflows: [String]
     ) throws -> [String] {
         if let rawWorkflows = parsed.value(for: "--workflows"), !rawWorkflows.isEmpty {
             let names = rawWorkflows
@@ -509,13 +511,13 @@ extension SwiftNestCLI {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
             let validated = try validateWorkflowNames(names)
-            let merged = Set(defaultWorkflowNames).union(validated)
+            let merged = Set(defaultWorkflows).union(validated)
             return orderedWorkflowDefinitions().map(\.name).filter { merged.contains($0) }
         }
         if interactive {
-            return try chooseWorkflowsInteractively(defaultWorkflows: defaultWorkflowNames)
+            return try chooseWorkflowsInteractively(defaultWorkflows: defaultWorkflows)
         }
-        return defaultWorkflowNames
+        return defaultWorkflows
     }
 
     static func chooseWorkflowsInteractively(defaultWorkflows: [String]) throws -> [String] {
@@ -545,7 +547,7 @@ extension SwiftNestCLI {
             }
             chosen.append(definitions[number - 1].name)
         }
-        let merged = Set(defaultWorkflowNames).union(chosen)
+        let merged = Set(defaultWorkflows).union(chosen)
         return definitions.map(\.name).filter { merged.contains($0) }
     }
 
@@ -554,6 +556,8 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingCurrentProfile, state.profile))
         print(SwiftNestLocalizer.text(.onboardingCurrentSkills, state.skills.joined(separator: ", ")))
         print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, normalizedWorkflowNames(state.workflows).joined(separator: ", ")))
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
         print(SwiftNestLocalizer.text(.onboardingUseForceToRerun))
     }
 
@@ -581,6 +585,8 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingNextStepsHeader))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewConfig, configURL.path))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewAgents))
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
+        print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
         print(SwiftNestLocalizer.text(.onboardingNextStepAgentRoot, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
     }

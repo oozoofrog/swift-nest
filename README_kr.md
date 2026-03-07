@@ -131,6 +131,18 @@ cp config/project.example.yaml config/project.yaml
 
 `upgrade` 는 기존 `.ai-harness/state.json` 이 있어야 하므로 먼저 `init` 을 실행해야 합니다.
 
+### 5. 온보딩 후 에이전트 검토로 넘기기
+
+다음 에이전트 작업은 저장소 루트에서 시작하고, 아래 파일부터 읽게 하세요.
+
+- `.ai-harness/workflows/onboarding-review.md`
+
+이 workflow는 다음 내용을 검토하도록 설계되어 있습니다.
+
+- `config/project.yaml` 이 실제 저장소를 반영하는지
+- 선택된 프로필, 스킬, 워크플로가 현재 코드베이스와 맞는지
+- 저장소별 입력을 더 잘 반영하도록 생성 문서를 다시 렌더링해야 하는지
+
 ## 사용 시나리오
 
 ### 1. 빈 저장소에서 하네스를 처음부터 구성하는 경우
@@ -166,8 +178,9 @@ git clone https://github.com/oozoofrog/swift-nest.git /tmp/swift-nest
 1. 현재 프로젝트의 아키텍처, 프레임워크 사용, 권한 영역, 테스트 스타일을 먼저 확인합니다.
 2. 저장소 루트에 `onboard` 를 실행해서 SwiftNest 설치, 설정 기본값 생성, 문서 초기화를 함께 수행합니다.
 3. 실제 프로젝트 상태를 반영하도록 `config/project.yaml` 을 검토합니다.
-4. 현재 코드베이스에 맞는 프로필, 스킬, 워크플로를 필요에 따라 명시합니다.
-5. 생성된 문서가 현재 프로젝트 관습과 맞는지 검토하고 커밋합니다.
+4. 첫 후속 검토는 `.ai-harness/workflows/onboarding-review.md` 부터 시작합니다.
+5. 현재 코드베이스에 맞는 프로필, 스킬, 워크플로를 필요에 따라 명시합니다.
+6. 생성된 문서가 현재 프로젝트 관습과 맞는지 검토하고 커밋합니다.
 
 예시:
 
@@ -299,11 +312,12 @@ Follow this process:
 2. Read the README from the starter repository first.
 3. From the starter checkout, run:
    ./swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
-4. Review config/project.yaml so it reflects the actual project state.
-5. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
-6. If needed, rerun ./swiftnest onboard or ./swiftnest init with explicit profile, skills, or workflows.
-7. Keep Docs/ and .ai-harness/ checked into the repository.
-8. Summarize the selected profile, selected skills, generated files, and any assumptions.
+4. Start the first follow-up review from ./.ai-harness/workflows/onboarding-review.md.
+5. Review config/project.yaml so it reflects the actual project state.
+6. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
+7. If needed, rerun ./swiftnest onboard or ./swiftnest init with explicit profile, skills, or workflows.
+8. Keep Docs/ and .ai-harness/ checked into the repository.
+9. Summarize the selected profile, selected skills, generated files, any workflow changes, and any assumptions.
 
 Constraints:
 - Do not run ./swiftnest onboard or ./swiftnest init from the starter checkout when the goal is to modify the current repository.
@@ -349,6 +363,7 @@ make onboard CONFIG=config/project.yaml
 ./swiftnest list-profiles
 ./swiftnest init --config config/project.yaml --workflows permissions,review
 ./swiftnest workflow list
+./swiftnest workflow print onboarding-review
 ./swiftnest workflow print add-feature
 ./swiftnest workflow scaffold permissions review
 ./swiftnest render-context

@@ -107,6 +107,17 @@ final class SwiftNestCLITests: XCTestCase {
         )
     }
 
+    func testOnboardingReviewWorkflowDefinitionExistsAndIsLocalized() throws {
+        let definition = try XCTUnwrap(SwiftNestCLI.workflowDefinitions["onboarding-review"])
+
+        XCTAssertFalse(definition.isDefault)
+        XCTAssertEqual(definition.templatePath, "Workflows/onboarding-review.md")
+        XCTAssertEqual(
+            definition.runtimeDescription(language: .ko),
+            "온보딩 후 실제 저장소를 기준으로 config, 선택한 스킬, 워크플로를 검토할 때 사용합니다."
+        )
+    }
+
     func testListProfileSummariesUseEnglishDescriptionsByDefault() throws {
         let summaries = try SwiftNestCLI.listProfileSummaries(
             repository: SwiftNestRepository(rootURL: try makeRepositoryFixture()),
@@ -175,6 +186,7 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("AGENTS.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("Docs/AI_RULES.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/state.json").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/networking.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/review.md").path))
 
@@ -188,7 +200,72 @@ final class SwiftNestCLITests: XCTestCase {
         )
         XCTAssertEqual(state.profile, "intermediate")
         XCTAssertEqual(state.skills, ["concurrency-rules", "ios-architecture", "networking-rules", "swiftui-rules", "testing-rules"])
-        XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "networking", "review"])
+        XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "networking", "review"])
+    }
+
+    func testRenderWorkflowSupportsOnboardingReviewTemplate() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot)
+        let config = try HarnessDocumentLoader.loadObject(at: repositoryRoot.appendingPathComponent("config/project.example.yaml"))
+
+        let rendered = try SwiftNestCLI.renderWorkflow(
+            named: "onboarding-review",
+            config: config,
+            profileName: "intermediate",
+            skills: ["ios-architecture", "testing-rules"],
+            workflows: ["add-feature", "fix-bug", "refactor", "build", "onboarding-review"],
+            repository: repository
+        )
+
+        XCTAssertTrue(rendered.contains("# Workflow: Onboarding Review"))
+        XCTAssertTrue(rendered.contains("config/project.yaml"))
+        XCTAssertTrue(rendered.contains("Keep `onboarding-review` available"))
+    }
+
+    func testInitKeepsOptionalWorkflowsOptInByDefault() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot)
+        let configURL = repositoryRoot.appendingPathComponent("config/project.yaml")
+        try String(contentsOf: repositoryRoot.appendingPathComponent("config/project.example.yaml"), encoding: .utf8)
+            .write(to: configURL, atomically: true, encoding: .utf8)
+
+        let parsed = ParsedArguments(
+            values: ["--config": "config/project.yaml"],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+
+        try SwiftNestCLI.runInit(parsed: parsed, repository: repository)
+
+        let state = try repository.loadState()
+        XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build"])
+    }
+
+    func testInitCanExplicitlyAddOnboardingReviewWorkflow() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot)
+        let configURL = repositoryRoot.appendingPathComponent("config/project.yaml")
+        try String(contentsOf: repositoryRoot.appendingPathComponent("config/project.example.yaml"), encoding: .utf8)
+            .write(to: configURL, atomically: true, encoding: .utf8)
+
+        let parsed = ParsedArguments(
+            values: [
+                "--config": "config/project.yaml",
+                "--workflows": "onboarding-review,review",
+            ],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+
+        try SwiftNestCLI.runInit(parsed: parsed, repository: repository)
+
+        let state = try repository.loadState()
+        XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "review"])
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: repositoryRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
+            )
+        )
     }
 
     func testOnboardRequiresTargetWhenOutsideRepositoryContext() throws {
@@ -311,6 +388,7 @@ final class SwiftNestCLITests: XCTestCase {
             "templates/Workflows/build.md",
             "templates/Workflows/fix-bug.md",
             "templates/Workflows/networking.md",
+            "templates/Workflows/onboarding-review.md",
             "templates/Workflows/refactor.md",
             "templates/Workflows/review.md",
             "tools/swiftnest-cli/Package.swift",
@@ -326,6 +404,24 @@ final class SwiftNestCLITests: XCTestCase {
             ? filePaths + ["packaging/homebrew/swiftnest.rb.template"]
             : filePaths
         let fileContents: [String: String] = [
+            "config/project.example.yaml": """
+            project_name: SampleApp
+            optional_watchos_line: ""
+            ui_framework: SwiftUI
+            architecture_style: MVVM with Repository pattern
+            min_ios_version: iOS 17
+            package_manager: Swift Package Manager
+            test_framework: XCTest
+            lint_tools: SwiftLint, SwiftFormat
+            network_layer_name: APIClient + RemoteRepository
+            persistence_layer_name: LocalRepository
+            logging_system: OSLog
+            privacy_requirements: least-privilege and privacy-safe handling
+            preferred_file_line_limit: "300"
+            healthkit_layer_name: HealthKitManager
+            build_command: xcodebuild -scheme SampleApp build
+            test_command: xcodebuild test -scheme SampleApp
+            """,
             "profiles/advanced.yaml": """
             name: advanced
             description: Strict setup for complex apps and long-lived codebases.
@@ -375,6 +471,13 @@ final class SwiftNestCLITests: XCTestCase {
             # Testing Rules
 
             Apply this skill whenever logic changes are introduced.
+            """,
+            "templates/Workflows/onboarding-review.md": """
+            # Workflow: Onboarding Review
+
+            Keep `onboarding-review` available as the entry workflow for future onboarding refreshes.
+
+            Review config/project.yaml and the selected workflows.
             """,
         ]
 

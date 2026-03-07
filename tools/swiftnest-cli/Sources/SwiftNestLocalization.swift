@@ -70,6 +70,8 @@ enum SwiftNestMessageKey: Hashable {
     case onboardingNextStepsHeader
     case onboardingNextStepReviewConfig
     case onboardingNextStepReviewAgents
+    case onboardingNextStepReviewWorkflow
+    case onboardingNextStepReviewGoals
     case onboardingNextStepAgentRoot
     case onboardingConfigPromptHeader
     case onboardingPromptProjectName
@@ -110,6 +112,7 @@ enum SwiftNestMessageKey: Hashable {
     case workflowDescriptionFixBug
     case workflowDescriptionRefactor
     case workflowDescriptionBuild
+    case workflowDescriptionOnboardingReview
     case workflowDescriptionPermissions
     case workflowDescriptionNetworking
     case workflowDescriptionReview
@@ -220,6 +223,8 @@ enum SwiftNestLocalizer {
             .onboardingNextStepsHeader: "Recommended next steps:",
             .onboardingNextStepReviewConfig: "- Review %@ and adjust project-specific values if needed.",
             .onboardingNextStepReviewAgents: "- Review AGENTS.md to confirm the generated operating instructions.",
+            .onboardingNextStepReviewWorkflow: "- Ask your AI agent to start with .ai-harness/workflows/onboarding-review.md.",
+            .onboardingNextStepReviewGoals: "- That review should verify config/project.yaml, selected skills, and workflows against the real repository.",
             .onboardingNextStepAgentRoot: "- Start your AI task from %@ so the repository-local ./swiftnest and generated docs are available.",
             .onboardingConfigPromptHeader: "Create config/project.yaml for this repository. Press Enter to accept inferred defaults.",
             .onboardingPromptProjectName: "Project name",
@@ -260,6 +265,7 @@ enum SwiftNestLocalizer {
             .workflowDescriptionFixBug: "Use for bug fixes and regression repairs.",
             .workflowDescriptionRefactor: "Use for structure-only changes that preserve behavior.",
             .workflowDescriptionBuild: "Use for build or test verification work.",
+            .workflowDescriptionOnboardingReview: "Use after onboarding to verify config, selected skills, and workflows against the real repository.",
             .workflowDescriptionPermissions: "Use when device authorization states are part of the task.",
             .workflowDescriptionNetworking: "Use for request/response and remote repository changes.",
             .workflowDescriptionReview: "Use for findings-first code review tasks.",
@@ -356,6 +362,8 @@ enum SwiftNestLocalizer {
             .onboardingNextStepsHeader: "권장 다음 단계:",
             .onboardingNextStepReviewConfig: "- %@를 열어 프로젝트별 값을 검토하거나 수정하세요.",
             .onboardingNextStepReviewAgents: "- 생성된 운영 지침이 맞는지 AGENTS.md를 검토하세요.",
+            .onboardingNextStepReviewWorkflow: "- AI 에이전트에게 .ai-harness/workflows/onboarding-review.md부터 시작하라고 요청하세요.",
+            .onboardingNextStepReviewGoals: "- 그 검토에서는 config/project.yaml, 선택한 스킬, 워크플로가 실제 저장소와 맞는지 확인해야 합니다.",
             .onboardingNextStepAgentRoot: "- %@ 루트에서 AI 작업을 시작하면 repo-local ./swiftnest와 생성된 문서를 바로 사용할 수 있습니다.",
             .onboardingConfigPromptHeader: "이 저장소용 config/project.yaml을 만듭니다. Enter를 누르면 추론한 기본값을 사용합니다.",
             .onboardingPromptProjectName: "프로젝트 이름",
@@ -396,6 +404,7 @@ enum SwiftNestLocalizer {
             .workflowDescriptionFixBug: "버그 수정 및 회귀 복구에 사용합니다.",
             .workflowDescriptionRefactor: "동작 변경 없이 구조만 정리하는 작업에 사용합니다.",
             .workflowDescriptionBuild: "빌드 또는 테스트 검증 작업에 사용합니다.",
+            .workflowDescriptionOnboardingReview: "온보딩 후 실제 저장소를 기준으로 config, 선택한 스킬, 워크플로를 검토할 때 사용합니다.",
             .workflowDescriptionPermissions: "기기 권한 상태가 작업의 일부일 때 사용합니다.",
             .workflowDescriptionNetworking: "요청/응답 및 원격 저장소 변경에 사용합니다.",
             .workflowDescriptionReview: "리뷰 결과를 먼저 제시하는 코드 리뷰 작업에 사용합니다.",

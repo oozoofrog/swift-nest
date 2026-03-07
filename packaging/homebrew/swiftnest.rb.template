@@ -125,6 +125,7 @@ class Swiftnest < Formula
     assert_predicate target/"config/project.yaml", :exist?
     assert_predicate target/"AGENTS.md", :exist?
     assert_predicate target/".ai-harness/state.json", :exist?
+    assert_predicate target/".ai-harness/workflows/onboarding-review.md", :exist?
     assert_predicate target/"profiles/advanced.yaml", :exist?
     assert_predicate target/"templates/Docs/AI_RULES.md", :exist?
     assert_predicate target/"tools/swiftnest-cli/Sources/SwiftNestCLI.swift", :exist?

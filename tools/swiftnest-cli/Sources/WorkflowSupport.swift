@@ -22,6 +22,8 @@ struct SwiftNestWorkflowDefinition {
             return SwiftNestLocalizer.text(.workflowDescriptionNetworking, language: language)
         case "review":
             return SwiftNestLocalizer.text(.workflowDescriptionReview, language: language)
+        case "onboarding-review":
+            return SwiftNestLocalizer.text(.workflowDescriptionOnboardingReview, language: language)
         default:
             return description
         }
@@ -30,7 +32,8 @@ struct SwiftNestWorkflowDefinition {
 
 extension SwiftNestCLI {
     static let defaultWorkflowNames = ["add-feature", "fix-bug", "refactor", "build"]
-    static let optionalWorkflowNames = ["permissions", "networking", "review"]
+    static let optionalWorkflowNames = ["onboarding-review", "permissions", "networking", "review"]
+    static let defaultOnboardingWorkflowNames = normalizedWorkflowNames(defaultWorkflowNames + ["onboarding-review"])
 
     static let workflowDefinitions: [String: SwiftNestWorkflowDefinition] = {
         let definitions = [
@@ -57,6 +60,12 @@ extension SwiftNestCLI {
                 description: "Use for build or test verification work.",
                 templatePath: "Workflows/build.md",
                 isDefault: true
+            ),
+            SwiftNestWorkflowDefinition(
+                name: "onboarding-review",
+                description: "Use after onboarding to verify config, selected skills, and workflows against the real repository.",
+                templatePath: "Workflows/onboarding-review.md",
+                isDefault: false
             ),
             SwiftNestWorkflowDefinition(
                 name: "permissions",

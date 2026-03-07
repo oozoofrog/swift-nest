@@ -131,6 +131,18 @@ cp config/project.example.yaml config/project.yaml
 
 `upgrade` requires an existing `.ai-harness/state.json`, so run `init` first.
 
+### 5. After onboarding, hand off to agent review
+
+Start the next agent task from the repository root and point it at:
+
+- `.ai-harness/workflows/onboarding-review.md`
+
+That workflow is intended to verify:
+
+- `config/project.yaml` against the real repository
+- the selected profile, skills, and workflows
+- whether generated docs should be rerendered with better repository-specific inputs
+
 ## Usage Scenarios
 
 ### 1. Create a Harness in a Brand-New Repository
@@ -166,8 +178,9 @@ Recommended flow:
 1. Inspect the existing architecture, frameworks, permission surfaces, testing style, and naming conventions.
 2. Run `onboard` into the repository root so SwiftNest installs, infers config defaults, and initializes docs together.
 3. Review `config/project.yaml` so it reflects the real project, not an aspiration.
-4. Choose the profile, skills, and workflows that match the current codebase when rerunning onboarding or init with explicit options.
-5. Review the generated docs against the current project and commit them.
+4. Start the first follow-up review from `.ai-harness/workflows/onboarding-review.md`.
+5. Choose the profile, skills, and workflows that match the current codebase when rerunning onboarding or init with explicit options.
+6. Review the generated docs against the current project and commit them.
 
 Example:
 
@@ -299,11 +312,12 @@ Follow this process:
 2. Read the README from the starter repository first.
 3. From the starter checkout, run:
    ./swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
-4. Review config/project.yaml so it reflects the actual project state.
-5. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
-6. If needed, rerun ./swiftnest onboard or ./swiftnest init with explicit profile, skills, or workflows.
-7. Keep Docs/ and .ai-harness/ checked into the repository.
-8. Summarize the selected profile, selected skills, generated files, and any assumptions.
+4. Start the first follow-up review from ./.ai-harness/workflows/onboarding-review.md.
+5. Review config/project.yaml so it reflects the actual project state.
+6. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
+7. If needed, rerun ./swiftnest onboard or ./swiftnest init with explicit profile, skills, or workflows.
+8. Keep Docs/ and .ai-harness/ checked into the repository.
+9. Summarize the selected profile, selected skills, generated files, any workflow changes, and any assumptions.
 
 Constraints:
 - Do not run ./swiftnest onboard or ./swiftnest init from the starter checkout when the goal is to modify the current repository.
@@ -349,6 +363,7 @@ make onboard CONFIG=config/project.yaml
 ./swiftnest list-profiles
 ./swiftnest init --config config/project.yaml --workflows permissions,review
 ./swiftnest workflow list
+./swiftnest workflow print onboarding-review
 ./swiftnest workflow print add-feature
 ./swiftnest workflow scaffold permissions review
 ./swiftnest render-context

@@ -344,10 +344,11 @@ enum SwiftNestCLI {
             repository: repository,
             interactive: interactive
         )
-        let workflows = try resolveOnboardingWorkflows(
+        let workflows = try resolveWorkflowSelection(
             parsed: parsed,
             interactive: interactive,
-            repository: repository
+            repository: repository,
+            defaultWorkflows: defaultWorkflowNames
         )
         let state = try initializeHarness(
             config: config,
