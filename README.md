@@ -78,9 +78,12 @@ SwiftNest ships Homebrew packaging assets under `packaging/homebrew/` for a sepa
 Recommended release flow:
 
 1. Create and push a Git tag from this repository.
-2. Download the tagged source archive and compute its SHA256.
+2. Download the tagged source archive from GitHub and compute its SHA256.
 3. Render `packaging/homebrew/swiftnest.rb.template` into the tap repository as `Formula/swiftnest.rb` with `packaging/homebrew/render_formula.sh`.
-4. Publish or update the tap repository.
+4. Commit and push the rendered formula in the tap repository.
+5. Verify the published tap with `brew install swiftnest` and `brew test swiftnest`.
+
+For the end-to-end release sequence to run after a feature lands on `main`, follow `AGENTS.md`.
 
 Once the tap is published, the intended install flow is:
 

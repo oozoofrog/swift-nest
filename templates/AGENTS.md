@@ -1,6 +1,6 @@
 # AGENTS.md for {{PROJECT_NAME}}
 
-You are working in the {{PROJECT_NAME}} iOS codebase.
+You are working in the {{PROJECT_NAME}} codebase scaffolded by SwiftNest.
 
 ## Start Here
 - Inspect the relevant code before editing.
@@ -33,6 +33,11 @@ You are working in the {{PROJECT_NAME}} iOS codebase.
 ## Build and Test Commands
 - Build: {{BUILD_COMMAND_SUMMARY}}
 - Test: {{TEST_COMMAND_SUMMARY}}
+
+## Feature Development Expectations
+- Keep user-visible behavior, generated docs, and verification guidance aligned.
+- Add or update tests for non-trivial CLI/runtime behavior changes.
+- Keep diffs minimal and avoid unrelated refactors.
 
 ## Completion Expectations
 - Summarize files changed.

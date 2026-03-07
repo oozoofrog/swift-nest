@@ -78,9 +78,12 @@ SwiftNest는 별도 tap 저장소(예: `oozoofrog/homebrew-swiftnest`)에서 사
 권장 릴리즈 흐름:
 
 1. 이 저장소에서 Git tag를 만들고 push 합니다.
-2. 해당 tag의 source archive SHA256을 계산합니다.
+2. GitHub에서 해당 tag source archive를 내려받고 SHA256을 계산합니다.
 3. `packaging/homebrew/render_formula.sh` 로 `packaging/homebrew/swiftnest.rb.template` 를 tap 저장소의 `Formula/swiftnest.rb` 로 렌더링합니다.
-4. tap 저장소를 공개하거나 갱신합니다.
+4. 렌더링된 formula를 tap 저장소에 커밋하고 push 합니다.
+5. `brew install swiftnest` 와 `brew test swiftnest` 로 배포 결과를 확인합니다.
+
+기능 개발 이후 end-to-end 배포 마무리 순서는 `AGENTS.md` 를 기준으로 진행합니다.
 
 tap 이 공개된 이후 기대하는 설치 흐름은 아래와 같습니다.
 

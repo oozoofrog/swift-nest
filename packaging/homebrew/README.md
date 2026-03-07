@@ -9,10 +9,14 @@ This directory contains the release-time Homebrew formula template for SwiftNest
 
 ## Release Checklist
 
-1. Create and push a Git tag from `swift-nest`.
-2. Download the tag archive from GitHub.
+Release the Homebrew formula in this order:
+
+1. Create and push a new Git tag from `swift-nest`.
+2. Download the matching tag archive from GitHub.
 3. Compute the archive SHA256.
 4. Render the formula into the tap repository, typically `oozoofrog/homebrew-swiftnest`.
+
+For the feature-to-release handoff sequence after work lands on `main`, see the repository `AGENTS.md`.
 
    ```bash
    ./packaging/homebrew/render_formula.sh \

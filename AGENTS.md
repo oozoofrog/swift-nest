@@ -1,6 +1,6 @@
-# AGENTS.md for RunTrack
+# AGENTS.md for SwiftNest
 
-You are working in the RunTrack iOS codebase.
+You are working in the SwiftNest starter and CLI codebase.
 
 ## Start Here
 - Inspect the relevant code before editing.
@@ -11,11 +11,9 @@ You are working in the RunTrack iOS codebase.
 - If the user asks for a review, lead with findings first.
 
 ## Project Context
-- Architecture: MVVM with Repository pattern
-- UI framework: SwiftUI
-- Networking boundary: APIClient + RemoteRepository
-- Persistence boundary: LocalRepository
-- Logging system: OSLog
+- Product: SwiftNest starter + local CLI bootstrap tooling
+- Primary surfaces: `swiftnest` shell entrypoint, `tools/swiftnest-cli`, starter templates, Homebrew packaging assets
+- Packaging model: repo-local installation first, optional Homebrew bootstrap command via separate tap
 - Harness profile: intermediate
 
 ## Required Reads
@@ -24,22 +22,32 @@ You are working in the RunTrack iOS codebase.
 3. Read the relevant files under `Docs/AI_SKILLS/`.
 4. When the task matches a workflow below, read the corresponding file under `.ai-harness/workflows/`.
 
-## Enabled Skills
-- `concurrency-rules`
-- `ios-architecture`
-- `location-rules`
-- `swiftui-rules`
-- `testing-rules`
-
 ## Workflow Entry Points
-- `add-feature`: Use for new features or visible behavior additions. Read `.ai-harness/workflows/add-feature.md`.
-- `fix-bug`: Use for bug fixes and regression repairs. Read `.ai-harness/workflows/fix-bug.md`.
+- `add-feature`: Use for new CLI behavior, starter template capabilities, or packaging-visible additions. Read `.ai-harness/workflows/add-feature.md`.
+- `fix-bug`: Use for CLI regressions, bootstrap/install issues, or packaging repairs. Read `.ai-harness/workflows/fix-bug.md`.
 - `refactor`: Use for structure-only changes that preserve behavior. Read `.ai-harness/workflows/refactor.md`.
-- `build`: Use for build or test verification work. Read `.ai-harness/workflows/build.md`.
+- `build`: Use for build, test, or packaging verification work. Read `.ai-harness/workflows/build.md`.
 
 ## Build and Test Commands
-- Build: xcodebuild -scheme RunTrack build
-- Test: xcodebuild test -scheme RunTrack
+- CLI tests: `swift test --package-path tools/swiftnest-cli`
+- CLI help smoke test: `./swiftnest --help`
+- Localized smoke test example: `./swiftnest --lang ko list-profiles`
+- Homebrew formula rendering: `make render-homebrew-formula RELEASE_TAG=<tag> RELEASE_ARCHIVE=<archive> FORMULA_OUTPUT=<path>`
+
+## Feature Development Expectations
+- Keep starter assets, CLI behavior, README guidance, and packaging changes aligned.
+- If user-visible CLI output changes, update or add tests for English/Korean behavior when applicable.
+- When changing Homebrew-visible behavior, update `packaging/homebrew/swiftnest.rb.template` and the related documentation in the same change.
+- Preserve the bootstrap model: global Homebrew `swiftnest` installs into repos, then repo-local `./swiftnest` owns follow-up commands.
+
+## Homebrew Release Follow-up
+When a feature affects starter contents or Homebrew-visible behavior, finish the release in this order after it lands on `main`:
+1. Verify the intended user-facing behavior locally from `main`.
+2. Create and push a new Git tag from `swift-nest`.
+3. Download the matching GitHub tag archive and compute its SHA256.
+4. Render `packaging/homebrew/swiftnest.rb.template` into the tap repository as `Formula/swiftnest.rb`.
+5. Commit and push the updated formula in `oozoofrog/homebrew-swiftnest` (or the active tap repo).
+6. Verify with `brew install swiftnest`, `brew test swiftnest`, and at least one smoke test such as `swiftnest install --target <repo>` or `swiftnest --lang ko list-profiles`.
 
 ## Completion Expectations
 - Summarize files changed.
