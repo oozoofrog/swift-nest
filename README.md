@@ -372,7 +372,7 @@ Runtime output language can be selected with a global option or environment vari
 
 ```bash
 ./swiftnest --lang ko --help
-SWIFTNEST_LANG=ko ./swiftnest workflow list
+SWIFTNEST_LANG=ko ./swiftnest list-profiles
 ```
 
 ## Publish Your Own Copy

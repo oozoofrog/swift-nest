@@ -1,5 +1,6 @@
 name: basic
 description: Minimal setup for solo projects and MVPs.
+description_ko: 개인 프로젝트와 MVP에 맞춘 최소 구성입니다.
 default_skills:
   - ios-architecture
   - swiftui-rules

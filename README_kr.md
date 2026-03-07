@@ -372,7 +372,7 @@ make upgrade PROFILE=advanced
 
 ```bash
 ./swiftnest --lang ko --help
-SWIFTNEST_LANG=ko ./swiftnest workflow list
+SWIFTNEST_LANG=ko ./swiftnest list-profiles
 ```
 
 ## 자신의 사본 공개하기
