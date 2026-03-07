@@ -111,7 +111,7 @@ struct SwiftNestRepository {
             }
         }
 
-        throw SwiftNestError("Could not locate the SwiftNest repository root.")
+        throw SwiftNestError(SwiftNestLocalizer.text(.couldNotLocateRepositoryRoot))
     }
 
     private static func isRepositoryRoot(_ url: URL) -> Bool {
@@ -140,7 +140,7 @@ struct SwiftNestRepository {
     func profileURL(named name: String) throws -> URL {
         let url = profilesURL.appendingPathComponent("\(name).yaml")
         guard fileManager.fileExists(atPath: url.path) else {
-            throw SwiftNestError("Unknown profile: \(name)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.unknownProfile, name))
         }
         return url
     }
@@ -173,7 +173,7 @@ struct SwiftNestRepository {
 
     func loadState() throws -> SwiftNestState {
         guard fileManager.fileExists(atPath: stateFileURL.path) else {
-            throw SwiftNestError("No .ai-harness/state.json found. Run init first.")
+            throw SwiftNestError(SwiftNestLocalizer.text(.noStateFile))
         }
         let data = try Data(contentsOf: stateFileURL)
         return try JSONDecoder().decode(SwiftNestState.self, from: data)
@@ -262,50 +262,56 @@ enum SwiftNestCLI {
             }
             try runListProfiles(repository: repository)
         default:
-            throw SwiftNestError("Unknown command: \(command)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.unknownCommand, command))
         }
     }
 
     static func runInstall(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.isEmpty else {
-            throw SwiftNestError("Unexpected positional arguments for install: \(parsed.positionals.joined(separator: " "))")
+            throw SwiftNestError(
+                SwiftNestLocalizer.text(.unexpectedPositionalsInstall, parsed.positionals.joined(separator: " "))
+            )
         }
 
         guard let target = parsed.value(for: "--target"), !target.isEmpty else {
-            throw SwiftNestError("install requires --target <path>.")
+            throw SwiftNestError(SwiftNestLocalizer.text(.installRequiresTarget))
         }
 
         let targetURL = URL(fileURLWithPath: target, isDirectory: true).standardizedFileURL
         if targetURL.path == repository.rootURL.standardizedFileURL.path {
-            throw SwiftNestError("Target repository must be different from the starter repository root.")
+            throw SwiftNestError(SwiftNestLocalizer.text(.targetRepositoryMustDiffer))
         }
 
         try repository.fileManager.createDirectory(at: targetURL, withIntermediateDirectories: true)
 
         let result = try installManagedFiles(into: targetURL, force: parsed.contains("--force"), dryRun: parsed.contains("--dry-run"), repository: repository)
 
-        let mode = parsed.contains("--dry-run") ? "Previewed" : "Installed"
+        let installMessage = parsed.contains("--dry-run")
+            ? SwiftNestLocalizer.text(.previewedManagedFilesInto, targetURL.path)
+            : SwiftNestLocalizer.text(.installedManagedFilesInto, targetURL.path)
         printWarnings(for: targetURL, fileManager: repository.fileManager)
-        print("\(mode) SwiftNest-managed files into \(targetURL.path)")
-        print("Changed files: \(result.copied)")
-        print("Unchanged files: \(result.unchanged)")
+        print(installMessage)
+        print(SwiftNestLocalizer.text(.changedFiles, result.copied))
+        print(SwiftNestLocalizer.text(.unchangedFiles, result.unchanged))
 
         if !parsed.contains("--dry-run") {
-            print("Next steps:")
+            print(SwiftNestLocalizer.text(.nextSteps))
             print("  cd \(targetURL.path)")
             print("  test -f config/project.yaml || cp config/project.example.yaml config/project.yaml")
-            print("  edit config/project.yaml")
+            print(SwiftNestLocalizer.text(.editProjectConfig))
             print("  ./swiftnest init --config config/project.yaml --profile intermediate")
         }
     }
 
     static func runInit(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.isEmpty else {
-            throw SwiftNestError("Unexpected positional arguments for init: \(parsed.positionals.joined(separator: " "))")
+            throw SwiftNestError(
+                SwiftNestLocalizer.text(.unexpectedPositionalsInit, parsed.positionals.joined(separator: " "))
+            )
         }
 
         guard let configValue = parsed.value(for: "--config"), !configValue.isEmpty else {
-            throw SwiftNestError("init requires --config <path>.")
+            throw SwiftNestError(SwiftNestLocalizer.text(.initRequiresConfig))
         }
 
         let configURL = URL(fileURLWithPath: configValue, relativeTo: repository.rootURL).standardizedFileURL
@@ -368,23 +374,25 @@ enum SwiftNestCLI {
         )
         try repository.saveState(state)
 
-        print("Initialized SwiftNest with profile '\(profileName)' and skills: \(skills.joined(separator: ", "))")
-        print("Rendered context: \(contextURL.path)")
+        print(SwiftNestLocalizer.text(.initializedSwiftNest, profileName, skills.joined(separator: ", ")))
+        print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
     }
 
     static func runUpgrade(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.isEmpty else {
-            throw SwiftNestError("Unexpected positional arguments for upgrade: \(parsed.positionals.joined(separator: " "))")
+            throw SwiftNestError(
+                SwiftNestLocalizer.text(.unexpectedPositionalsUpgrade, parsed.positionals.joined(separator: " "))
+            )
         }
 
         guard let targetProfile = parsed.value(for: "--to"), !targetProfile.isEmpty else {
-            throw SwiftNestError("upgrade requires --to <profile>.")
+            throw SwiftNestError(SwiftNestLocalizer.text(.upgradeRequiresProfile))
         }
 
         var state = try repository.loadState()
         let configURL = repository.resolveStatePath(state.configPath)
         guard repository.fileManager.fileExists(atPath: configURL.path) else {
-            throw SwiftNestError("Config path not found: \(configURL.path)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.configPathNotFound, configURL.path))
         }
 
         let profile = try HarnessDocumentLoader.loadObject(at: repository.profileURL(named: targetProfile))
@@ -430,8 +438,8 @@ enum SwiftNestCLI {
         try profileText.write(to: selectedProfileURL, atomically: true, encoding: .utf8)
         try (mergedSkills.joined(separator: "\n") + "\n").write(to: selectedSkillsURL, atomically: true, encoding: .utf8)
 
-        print("Upgraded SwiftNest to '\(targetProfile)'.")
-        print("Current skills: \(mergedSkills.joined(separator: ", "))")
+        print(SwiftNestLocalizer.text(.upgradedSwiftNest, targetProfile))
+        print(SwiftNestLocalizer.text(.currentSkills, mergedSkills.joined(separator: ", ")))
     }
 
     static func runRenderContext(repository: SwiftNestRepository) throws {
@@ -496,22 +504,26 @@ enum SwiftNestCLI {
             }
             try runWorkflowScaffold(parsed: parsed, repository: repository)
         default:
-            throw SwiftNestError("Unknown workflow subcommand: \(subcommand)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.unknownWorkflowSubcommand, subcommand))
         }
     }
 
     static func runWorkflowList(repository: SwiftNestRepository) throws {
         let enabled = try currentWorkflowSet(repository: repository)
         for definition in orderedWorkflowDefinitions() {
-            let kind = definition.isDefault ? "default" : "optional"
-            let status = enabled.contains(definition.name) ? "enabled" : "available"
-            print("\(definition.name) [\(kind), \(status)]: \(definition.description)")
+            let kind = definition.isDefault
+                ? SwiftNestLocalizer.text(.workflowKindDefault)
+                : SwiftNestLocalizer.text(.workflowKindOptional)
+            let status = enabled.contains(definition.name)
+                ? SwiftNestLocalizer.text(.workflowStatusEnabled)
+                : SwiftNestLocalizer.text(.workflowStatusAvailable)
+            print("\(definition.name) [\(kind), \(status)]: \(definition.runtimeDescription())")
         }
     }
 
     static func runWorkflowPrint(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         guard parsed.positionals.count == 1 else {
-            throw SwiftNestError("workflow print requires exactly one workflow name.")
+            throw SwiftNestError(SwiftNestLocalizer.text(.workflowPrintRequiresOneName))
         }
 
         let name = parsed.positionals[0]
@@ -556,14 +568,14 @@ enum SwiftNestCLI {
         updatedState.contextPath = repository.serializeStatePath(contextURL)
         try repository.saveState(updatedState)
 
-        print("Scaffolded workflows: \(renderedWorkflows.joined(separator: ", "))")
+        print(SwiftNestLocalizer.text(.scaffoldedWorkflows, renderedWorkflows.joined(separator: ", ")))
     }
 
     static func currentStateAndConfig(repository: SwiftNestRepository) throws -> (SwiftNestState, [String: Any]) {
         let state = try repository.loadState()
         let configURL = repository.resolveStatePath(state.configPath)
         guard repository.fileManager.fileExists(atPath: configURL.path) else {
-            throw SwiftNestError("Config path not found: \(configURL.path)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.configPathNotFound, configURL.path))
         }
         let config = try HarnessDocumentLoader.loadObject(at: configURL)
         return (state, config)
@@ -587,7 +599,7 @@ enum SwiftNestCLI {
         var valid: Set<String> = []
         for name in names {
             guard workflowDefinitions[name] != nil else {
-                throw SwiftNestError("Unknown workflow: \(name)")
+                throw SwiftNestError(SwiftNestLocalizer.text(.unknownWorkflow, name))
             }
             valid.insert(name)
         }
@@ -604,7 +616,7 @@ enum SwiftNestCLI {
             let arg = args[index]
             if valueOptions.contains(arg) {
                 guard index + 1 < args.count else {
-                    throw SwiftNestError("Missing value for \(arg).")
+                    throw SwiftNestError(SwiftNestLocalizer.text(.missingValueForOption, arg))
                 }
                 values[arg] = args[index + 1]
                 index += 2
@@ -616,7 +628,7 @@ enum SwiftNestCLI {
                 continue
             }
             if arg.hasPrefix("--") || arg.hasPrefix("-") {
-                throw SwiftNestError("Unknown option: \(arg)")
+                throw SwiftNestError(SwiftNestLocalizer.text(.unknownOption, arg))
             }
             positionals.append(arg)
             index += 1
@@ -627,7 +639,7 @@ enum SwiftNestCLI {
 
     static func normalizeContext(config: [String: Any], profileName: String) throws -> [String: String] {
         guard let profileGuidance = profileGuidance[profileName], let workflowGuidance = workflowGuidance[profileName] else {
-            throw SwiftNestError("Unknown profile: \(profileName)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.unknownProfile, profileName))
         }
 
         return [
@@ -690,7 +702,7 @@ enum SwiftNestCLI {
         for skill in skills {
             let sourceURL = repository.templatesURL.appendingPathComponent("Docs/AI_SKILLS/\(skill).md")
             guard fileManager.fileExists(atPath: sourceURL.path) else {
-                throw SwiftNestError("Unknown skill template: \(skill)")
+                throw SwiftNestError(SwiftNestLocalizer.text(.unknownSkillTemplate, skill))
             }
             let destinationURL = skillsURL.appendingPathComponent(sourceURL.lastPathComponent)
             let template = try String(contentsOf: sourceURL, encoding: .utf8)
@@ -762,27 +774,27 @@ enum SwiftNestCLI {
 
     static func chooseProfileInteractively(repository: SwiftNestRepository) throws -> String {
         let profiles = try repository.availableProfiles().map { $0.deletingPathExtension().lastPathComponent }
-        print("Profiles:")
+        print(SwiftNestLocalizer.text(.profilesHeader))
         for (index, name) in profiles.enumerated() {
             print("  \(index + 1). \(name)")
         }
-        print("Choose profile number (default 1): ", terminator: "")
+        print(SwiftNestLocalizer.text(.chooseProfileNumberPrompt), terminator: "")
         let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let chosen = raw.isEmpty ? "1" : raw
         guard let number = Int(chosen), profiles.indices.contains(number - 1) else {
-            throw SwiftNestError("Profile choice out of range")
+            throw SwiftNestError(SwiftNestLocalizer.text(.profileChoiceOutOfRange))
         }
         return profiles[number - 1]
     }
 
     static func chooseSkillsInteractively(defaultSkills: [String], repository: SwiftNestRepository) throws -> [String] {
         let skills = try repository.availableSkills()
-        print("Available skills:")
+        print(SwiftNestLocalizer.text(.availableSkillsHeader))
         for (index, skill) in skills.enumerated() {
             let mark = defaultSkills.contains(skill) ? "*" : " "
             print(String(format: "  %2d. [%@] %@", index + 1, mark, skill))
         }
-        print("Select skills by comma-separated numbers (Enter for defaults): ", terminator: "")
+        print(SwiftNestLocalizer.text(.selectSkillsPrompt), terminator: "")
         let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if raw.isEmpty {
             return defaultSkills
@@ -792,10 +804,10 @@ enum SwiftNestCLI {
         for token in raw.split(separator: ",") {
             let trimmed = token.trimmingCharacters(in: .whitespaces)
             guard let number = Int(trimmed) else {
-                throw SwiftNestError("Invalid selection: \(trimmed)")
+                throw SwiftNestError(SwiftNestLocalizer.text(.invalidSelection, trimmed))
             }
             guard skills.indices.contains(number - 1) else {
-                throw SwiftNestError("Selection out of range: \(trimmed)")
+                throw SwiftNestError(SwiftNestLocalizer.text(.selectionOutOfRange, trimmed))
             }
             chosen.append(skills[number - 1])
         }
@@ -812,7 +824,7 @@ enum SwiftNestCLI {
             let destinationURL = targetURL.appendingPathComponent(relativePath)
             var isDirectory: ObjCBool = false
             if fileManager.fileExists(atPath: destinationURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
-                throw SwiftNestError("Expected file but found directory at target path: \(relativePath)")
+                throw SwiftNestError(SwiftNestLocalizer.text(.expectedFileButFoundDirectory, relativePath))
             }
 
             if fileManager.fileExists(atPath: destinationURL.path) {
@@ -827,8 +839,10 @@ enum SwiftNestCLI {
             }
 
             if dryRun {
-                let action = fileManager.fileExists(atPath: destinationURL.path) ? "overwrite" : "copy"
-                print("\(action): \(relativePath)")
+                let actionMessage = fileManager.fileExists(atPath: destinationURL.path)
+                    ? SwiftNestLocalizer.text(.dryRunOverwrite, relativePath)
+                    : SwiftNestLocalizer.text(.dryRunCopy, relativePath)
+                print(actionMessage)
                 copied += 1
                 continue
             }
@@ -843,11 +857,7 @@ enum SwiftNestCLI {
 
         if !conflicts.isEmpty {
             let joined = conflicts.map { "- \($0)" }.joined(separator: "\n")
-            throw SwiftNestError(
-                "Refusing to overwrite managed files in the target repository.\n"
-                    + "Re-run with --force if these files should be replaced:\n"
-                    + joined
-            )
+            throw SwiftNestError(SwiftNestLocalizer.text(.refusingOverwriteManagedFiles, joined))
         }
 
         return (copied, unchanged)
@@ -861,7 +871,7 @@ enum SwiftNestCLI {
             let sourceURL = repository.rootURL.appendingPathComponent(relativePath)
             var isDirectory: ObjCBool = false
             guard repository.fileManager.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory) else {
-                throw SwiftNestError("Managed path is missing from starter: \(relativePath)")
+                throw SwiftNestError(SwiftNestLocalizer.text(.managedPathMissingFromStarter, relativePath))
             }
             if isDirectory.boolValue {
                 let enumerator = repository.fileManager.enumerator(
@@ -889,7 +899,7 @@ enum SwiftNestCLI {
         let filePath = resolvedFileURL.path
 
         guard filePath.hasPrefix(rootPath) else {
-            throw SwiftNestError("Managed path escaped repository root: \(fileURL.path)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.managedPathEscapedRepositoryRoot, fileURL.path))
         }
 
         return String(filePath.dropFirst(rootPath.count))
@@ -907,83 +917,61 @@ enum SwiftNestCLI {
             for rawLine in gitignoreText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
                 let line = rawLine.trimmingCharacters(in: .whitespaces)
                 if line == ".ai-harness" || line == ".ai-harness/" {
-                    print("warning: .gitignore ignores .ai-harness/. Remove that rule before committing generated state.")
+                    print(SwiftNestLocalizer.text(.warningGitignoreIgnoresAIHarness))
                     break
                 }
             }
         }
 
         if fileManager.fileExists(atPath: targetURL.appendingPathComponent("Docs").path) {
-            print("warning: Docs/ already exists. Review generated files after init before committing.")
+            print(SwiftNestLocalizer.text(.warningDocsAlreadyExists))
         }
         if fileManager.fileExists(atPath: targetURL.appendingPathComponent(".ai-harness").path) {
-            print("warning: .ai-harness/ already exists. Review current state before rerendering or upgrading.")
+            print(SwiftNestLocalizer.text(.warningAIHarnessAlreadyExists))
         }
     }
 
     static func printTopLevelUsage() {
-        print(
-            """
-            usage: swiftnest <command> [options]
-
-            Commands:
-              install        Install SwiftNest-managed files into a target repository
-              init           Initialize docs from config, profile, and skills
-              upgrade        Upgrade to a stricter profile
-              workflow       Manage workflow scaffolds
-              render-context Render the combined context bundle
-              list-skills    List available skills
-              list-profiles  List available profiles
-            """
-        )
+        print(SwiftNestLocalizer.text(.usageTopLevel))
     }
 
     static func printInstallUsage() {
-        print("usage: swiftnest install --target <path> [--force] [--dry-run]")
+        print(SwiftNestLocalizer.text(.usageInstall))
     }
 
     static func printInitUsage() {
-        print("usage: swiftnest init --config <path> [--profile <name>] [--skills <csv>] [--non-interactive]")
+        print(SwiftNestLocalizer.text(.usageInit))
     }
 
     static func printUpgradeUsage() {
-        print("usage: swiftnest upgrade --to <profile>")
+        print(SwiftNestLocalizer.text(.usageUpgrade))
     }
 
     static func printWorkflowUsage() {
-        print(
-            """
-            usage: swiftnest workflow <subcommand> [options]
-
-            Subcommands:
-              list                 List supported workflows and current status
-              print <name>         Print one rendered workflow to stdout
-              scaffold [name ...]  Regenerate current workflows or add optional workflows
-            """
-        )
+        print(SwiftNestLocalizer.text(.usageWorkflow))
     }
 
     static func printWorkflowListUsage() {
-        print("usage: swiftnest workflow list")
+        print(SwiftNestLocalizer.text(.usageWorkflowList))
     }
 
     static func printWorkflowPrintUsage() {
-        print("usage: swiftnest workflow print <name>")
+        print(SwiftNestLocalizer.text(.usageWorkflowPrint))
     }
 
     static func printWorkflowScaffoldUsage() {
-        print("usage: swiftnest workflow scaffold [name ...]")
+        print(SwiftNestLocalizer.text(.usageWorkflowScaffold))
     }
 
     static func printRenderContextUsage() {
-        print("usage: swiftnest render-context")
+        print(SwiftNestLocalizer.text(.usageRenderContext))
     }
 
     static func printListSkillsUsage() {
-        print("usage: swiftnest list-skills")
+        print(SwiftNestLocalizer.text(.usageListSkills))
     }
 
     static func printListProfilesUsage() {
-        print("usage: swiftnest list-profiles")
+        print(SwiftNestLocalizer.text(.usageListProfiles))
     }
 }

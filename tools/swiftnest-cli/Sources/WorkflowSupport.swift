@@ -5,6 +5,27 @@ struct SwiftNestWorkflowDefinition {
     let description: String
     let templatePath: String
     let isDefault: Bool
+
+    func runtimeDescription(language: SwiftNestLanguage = SwiftNestLocalizer.activeLanguage) -> String {
+        switch name {
+        case "add-feature":
+            return SwiftNestLocalizer.text(.workflowDescriptionAddFeature, language: language)
+        case "fix-bug":
+            return SwiftNestLocalizer.text(.workflowDescriptionFixBug, language: language)
+        case "refactor":
+            return SwiftNestLocalizer.text(.workflowDescriptionRefactor, language: language)
+        case "build":
+            return SwiftNestLocalizer.text(.workflowDescriptionBuild, language: language)
+        case "permissions":
+            return SwiftNestLocalizer.text(.workflowDescriptionPermissions, language: language)
+        case "networking":
+            return SwiftNestLocalizer.text(.workflowDescriptionNetworking, language: language)
+        case "review":
+            return SwiftNestLocalizer.text(.workflowDescriptionReview, language: language)
+        default:
+            return description
+        }
+    }
 }
 
 extension SwiftNestCLI {
@@ -145,7 +166,7 @@ extension SwiftNestCLI {
         repository: SwiftNestRepository
     ) throws -> String {
         guard let definition = workflowDefinitions[name] else {
-            throw SwiftNestError("Unknown workflow: \(name)")
+            throw SwiftNestError(SwiftNestLocalizer.text(.unknownWorkflowName, name))
         }
 
         let baseContext = try normalizeContext(config: config, profileName: profileName)

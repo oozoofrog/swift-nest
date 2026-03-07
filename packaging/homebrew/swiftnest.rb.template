@@ -22,6 +22,43 @@ class Swiftnest < Formula
       #!/bin/bash
       set -euo pipefail
 
+      resolve_lang() {
+        local explicit_lang=""
+        local pending_lang_value=0
+
+        for arg in "$@"; do
+          if [[ "$pending_lang_value" -eq 1 ]]; then
+            explicit_lang="$arg"
+            pending_lang_value=0
+            continue
+          fi
+
+          case "$arg" in
+            --lang)
+              pending_lang_value=1
+              ;;
+            --lang=*)
+              explicit_lang="${arg#--lang=}"
+              ;;
+          esac
+        done
+
+        for candidate in "$explicit_lang" "${SWIFTNEST_LANG:-}" "${LC_ALL:-}" "${LC_MESSAGES:-}" "${LANG:-}"; do
+          case "$candidate" in
+            [Kk][Oo]|[Kk][Oo]_*|[Kk][Oo]-*)
+              printf 'ko'
+              return 0
+              ;;
+            [Ee][Nn]|[Ee][Nn]_*|[Ee][Nn]-*)
+              printf 'en'
+              return 0
+              ;;
+          esac
+        done
+
+        printf 'en'
+      }
+
       local_swiftnest="$PWD/swiftnest"
       if [[ -x "$local_swiftnest" ]]; then
         exec "$local_swiftnest" "$@"
@@ -34,8 +71,16 @@ class Swiftnest < Formula
           ;;
       esac
 
-      echo "error: the Homebrew-installed swiftnest command only bootstraps repositories." >&2
-      echo "Run 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository." >&2
+      case "$(resolve_lang "$@")" in
+        ko)
+          echo "오류: Homebrew로 설치한 swiftnest 명령은 저장소 부트스트랩 용도로만 사용할 수 있습니다." >&2
+          echo "먼저 'swiftnest install --target <path>'를 실행한 뒤, 대상 저장소에서 './swiftnest ...'를 사용하세요." >&2
+          ;;
+        *)
+          echo "error: the Homebrew-installed swiftnest command only bootstraps repositories." >&2
+          echo "Run 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository." >&2
+          ;;
+      esac
       exit 1
     EOS
     (bin/"swiftnest").chmod 0555

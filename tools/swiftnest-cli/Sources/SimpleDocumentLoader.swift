@@ -11,11 +11,11 @@ enum HarnessDocumentLoader {
 
     private static func loadJSON(text: String, url: URL) throws -> [String: Any] {
         guard let data = text.data(using: .utf8) else {
-            throw SwiftNestError("Could not decode UTF-8 text from \(url.path).")
+            throw SwiftNestError(SwiftNestLocalizer.text(.couldNotDecodeUTF8Text, url.path))
         }
         let object = try JSONSerialization.jsonObject(with: data)
         guard let dictionary = object as? [String: Any] else {
-            throw SwiftNestError("Expected a top-level object in \(url.path).")
+            throw SwiftNestError(SwiftNestLocalizer.text(.expectedTopLevelObject, url.path))
         }
         return dictionary
     }
