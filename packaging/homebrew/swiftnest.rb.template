@@ -12,6 +12,7 @@ class Swiftnest < Formula
 
     system "swift", "build",
            "--package-path", libexec/"tools/swiftnest-cli",
+           "--disable-sandbox",
            "-c", "release",
            "--product", "swiftnest"
 
@@ -33,13 +34,11 @@ class Swiftnest < Formula
           ;;
       esac
 
-      cat >&2 <<'ERROR'
-error: the Homebrew-installed swiftnest command only bootstraps repositories.
-Run 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository.
-ERROR
+      echo "error: the Homebrew-installed swiftnest command only bootstraps repositories." >&2
+      echo "Run 'swiftnest install --target <path>' first, then use './swiftnest ...' from the target repository." >&2
       exit 1
     EOS
-    chmod 0555, bin/"swiftnest"
+    (bin/"swiftnest").chmod 0555
   end
 
   test do
