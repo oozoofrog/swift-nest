@@ -44,7 +44,7 @@ Check these fields against the repository:
 ## Regenerate If Needed
 If config, skills, or workflows need to change:
 1. Update `config/project.yaml`.
-2. Re-run `./swiftnest onboard` or `./swiftnest init` with explicit profile, skills, or workflows.
+2. Re-run `swiftnest onboard` or `swiftnest init` with explicit profile, skills, or workflows.
 3. Re-render `.ai-harness/` outputs if the selected workflows changed.
 
 ## Final Response

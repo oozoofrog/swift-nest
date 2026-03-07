@@ -101,7 +101,8 @@ extension SwiftNestCLI {
             print(SwiftNestLocalizer.text(.onboardingManagedFilesReady, status.targetRootURL.path))
         }
 
-        let targetRepository = SwiftNestRepository(rootURL: status.targetRootURL)
+        let targetRepository = SwiftNestRepository(rootURL: status.targetRootURL, assetRootURL: repository.assetRootURL)
+        try migrateRepositoryInstallationIfNeeded(repository: targetRepository)
         let configCreated = try ensureOnboardingConfig(
             at: status.configURL,
             repository: targetRepository,
@@ -189,15 +190,10 @@ extension SwiftNestCLI {
             repository: repository
         )
 
-        try repository.fileManager.createDirectory(at: repository.stateDirectoryURL, withIntermediateDirectories: true)
-        let selectedProfileURL = repository.stateDirectoryURL.appendingPathComponent("selected_profile.yaml")
-        let selectedSkillsURL = repository.stateDirectoryURL.appendingPathComponent("selected_skills.txt")
-        let profileSourceURL = try repository.profileURL(named: profileName)
-        let profileText = try String(contentsOf: profileSourceURL, encoding: .utf8)
-        try profileText.write(to: selectedProfileURL, atomically: true, encoding: .utf8)
-        try (skills.joined(separator: "\n") + "\n").write(to: selectedSkillsURL, atomically: true, encoding: .utf8)
+        try writeSelectedConfigurationFiles(profileName: profileName, skills: skills, repository: repository)
 
         let state = SwiftNestState(
+            dataVersion: currentDataVersion,
             profile: profileName,
             skills: skills,
             workflows: renderedWorkflows,
@@ -216,7 +212,7 @@ extension SwiftNestCLI {
         let fileManager = starterRepository.fileManager
         let resolvedTargetRoot = targetRootURL.resolvingSymlinksInPath().standardizedFileURL
         return SwiftNestOnboardingStatus(
-            starterRootURL: starterRepository.rootURL.resolvingSymlinksInPath().standardizedFileURL,
+            starterRootURL: starterRepository.assetRootURL.resolvingSymlinksInPath().standardizedFileURL,
             targetRootURL: resolvedTargetRoot,
             targetAlreadyManaged: SwiftNestRepository.isRepositoryRoot(resolvedTargetRoot),
             configURL: configURL.resolvingSymlinksInPath().standardizedFileURL,
@@ -234,19 +230,21 @@ extension SwiftNestCLI {
             return URL(fileURLWithPath: rawTarget, isDirectory: true).standardizedFileURL
         }
 
-        let repoRootURL = repository.rootURL.resolvingSymlinksInPath().standardizedFileURL
         let resolvedCurrentDirectoryURL = currentDirectoryURL.resolvingSymlinksInPath().standardizedFileURL
-        let repoPrefix = repoRootURL.path.hasSuffix("/") ? repoRootURL.path : repoRootURL.path + "/"
+        let assetRootURL = repository.assetRootURL.resolvingSymlinksInPath().standardizedFileURL
+        let assetPrefix = assetRootURL.path.hasSuffix("/") ? assetRootURL.path : assetRootURL.path + "/"
 
-        if resolvedCurrentDirectoryURL.path == repoRootURL.path || resolvedCurrentDirectoryURL.path.hasPrefix(repoPrefix) {
+        if resolvedCurrentDirectoryURL.path == assetRootURL.path || resolvedCurrentDirectoryURL.path.hasPrefix(assetPrefix) {
             if repository.isStarterCheckout {
                 throw SwiftNestError(SwiftNestLocalizer.text(.onboardingStarterCheckoutRequiresTarget))
             }
-            return repoRootURL
         }
 
-        if SwiftNestRepository.isRepositoryRoot(resolvedCurrentDirectoryURL) {
-            return resolvedCurrentDirectoryURL
+        if let currentRepository = try? SwiftNestRepository.locateManagedRepository(
+            assetRootURL: assetRootURL,
+            currentDirectoryPath: resolvedCurrentDirectoryURL.path
+        ) {
+            return currentRepository.rootURL
         }
 
         throw SwiftNestError(SwiftNestLocalizer.text(.onboardingRequiresTargetOutsideRepository))

@@ -1,4 +1,4 @@
-SWIFTNEST ?= ./swiftnest
+SWIFTNEST ?= swiftnest
 HARNESS ?= $(SWIFTNEST)
 CONFIG ?= config/project.yaml
 TARGET ?=

@@ -41,6 +41,7 @@ enum SwiftNestMessageKey: Hashable {
     case unsupportedLanguageOption
     case unsupportedLanguageEnvironment
     case missingValueForOption
+    case couldNotLocateAssetRoot
     case couldNotLocateRepositoryRoot
     case couldNotDecodeUTF8Text
     case expectedTopLevelObject
@@ -101,6 +102,7 @@ enum SwiftNestMessageKey: Hashable {
     case unexpectedPositionalsUpgrade
     case upgradeRequiresProfile
     case configPathNotFound
+    case stateDataVersionTooNew
     case upgradedSwiftNest
     case currentSkills
     case unknownWorkflowSubcommand
@@ -194,7 +196,8 @@ enum SwiftNestLocalizer {
             .unsupportedLanguageOption: "Unsupported language value for --lang: %@. Supported values: %@.",
             .unsupportedLanguageEnvironment: "Unsupported language value for SWIFTNEST_LANG: %@. Supported values: %@.",
             .missingValueForOption: "Missing value for %@.",
-            .couldNotLocateRepositoryRoot: "Could not locate the SwiftNest repository root.",
+            .couldNotLocateAssetRoot: "Could not locate the SwiftNest asset root.",
+            .couldNotLocateRepositoryRoot: "Could not locate a SwiftNest-managed repository root from the current directory.",
             .couldNotDecodeUTF8Text: "Could not decode UTF-8 text from %@.",
             .expectedTopLevelObject: "Expected a top-level object in %@.",
             .unknownProfile: "Unknown profile: %@",
@@ -204,7 +207,7 @@ enum SwiftNestLocalizer {
             .onboardingRequiresTargetOutsideRepository: "onboard requires --target <path> when you are not already inside a SwiftNest-managed repository.",
             .onboardingStarterCheckoutRequiresTarget: "Running onboard from the SwiftNest starter checkout requires --target <path> so the target app repository is updated instead of the starter itself.",
             .onboardingStarted: "Starting SwiftNest onboarding for %@",
-            .onboardingStarterPath: "Starter root: %@",
+            .onboardingStarterPath: "SwiftNest assets: %@",
             .onboardingTargetPath: "Target repository: %@",
             .onboardingManagedFilesReady: "SwiftNest-managed files are already present in %@",
             .onboardingCreatedConfig: "Created onboarding config: %@",
@@ -225,7 +228,7 @@ enum SwiftNestLocalizer {
             .onboardingNextStepReviewAgents: "- Review AGENTS.md to confirm the generated operating instructions.",
             .onboardingNextStepReviewWorkflow: "- Ask your AI agent to start with .ai-harness/workflows/onboarding-review.md.",
             .onboardingNextStepReviewGoals: "- That review should verify config/project.yaml, selected skills, and workflows against the real repository.",
-            .onboardingNextStepAgentRoot: "- Start your AI task from %@ so the repository-local ./swiftnest and generated docs are available.",
+            .onboardingNextStepAgentRoot: "- Start your AI task from %@ so the global swiftnest command and generated docs are available.",
             .onboardingConfigPromptHeader: "Create config/project.yaml for this repository. Press Enter to accept inferred defaults.",
             .onboardingPromptProjectName: "Project name",
             .onboardingPromptWatchCompanion: "Include a watchOS companion line",
@@ -254,6 +257,7 @@ enum SwiftNestLocalizer {
             .unexpectedPositionalsUpgrade: "Unexpected positional arguments for upgrade: %@",
             .upgradeRequiresProfile: "upgrade requires --to <profile>.",
             .configPathNotFound: "Config path not found: %@",
+            .stateDataVersionTooNew: "Repository data version %d is newer than this SwiftNest CLI supports (%d). Upgrade your global swiftnest installation.",
             .upgradedSwiftNest: "Upgraded SwiftNest to '%@'.",
             .currentSkills: "Current skills: %@",
             .unknownWorkflowSubcommand: "Unknown workflow subcommand: %@",
@@ -333,7 +337,8 @@ enum SwiftNestLocalizer {
             .unsupportedLanguageOption: "--lang에 지원하지 않는 언어 값이 지정되었습니다: %@. 지원 값: %@.",
             .unsupportedLanguageEnvironment: "SWIFTNEST_LANG에 지원하지 않는 언어 값이 지정되었습니다: %@. 지원 값: %@.",
             .missingValueForOption: "%@ 옵션에 필요한 값이 없습니다.",
-            .couldNotLocateRepositoryRoot: "SwiftNest 저장소 루트를 찾을 수 없습니다.",
+            .couldNotLocateAssetRoot: "SwiftNest 자산 루트를 찾을 수 없습니다.",
+            .couldNotLocateRepositoryRoot: "현재 디렉터리에서 SwiftNest 관리 저장소 루트를 찾을 수 없습니다.",
             .couldNotDecodeUTF8Text: "%@에서 UTF-8 텍스트를 디코드할 수 없습니다.",
             .expectedTopLevelObject: "%@에서 최상위 객체를 기대했습니다.",
             .unknownProfile: "알 수 없는 프로필입니다: %@",
@@ -343,7 +348,7 @@ enum SwiftNestLocalizer {
             .onboardingRequiresTargetOutsideRepository: "아직 SwiftNest가 설치되지 않은 위치에서 onboard를 실행하려면 --target <path>가 필요합니다.",
             .onboardingStarterCheckoutRequiresTarget: "SwiftNest 스타터 체크아웃에서 onboard를 실행할 때는 스타터 자체가 아니라 대상 앱 저장소를 갱신하도록 --target <path>가 필요합니다.",
             .onboardingStarted: "%@에 대한 SwiftNest 온보딩을 시작합니다",
-            .onboardingStarterPath: "스타터 루트: %@",
+            .onboardingStarterPath: "SwiftNest 자산 경로: %@",
             .onboardingTargetPath: "대상 저장소: %@",
             .onboardingManagedFilesReady: "%@에는 이미 SwiftNest 관리 파일이 있습니다",
             .onboardingCreatedConfig: "온보딩 설정 파일을 만들었습니다: %@",
@@ -364,7 +369,7 @@ enum SwiftNestLocalizer {
             .onboardingNextStepReviewAgents: "- 생성된 운영 지침이 맞는지 AGENTS.md를 검토하세요.",
             .onboardingNextStepReviewWorkflow: "- AI 에이전트에게 .ai-harness/workflows/onboarding-review.md부터 시작하라고 요청하세요.",
             .onboardingNextStepReviewGoals: "- 그 검토에서는 config/project.yaml, 선택한 스킬, 워크플로가 실제 저장소와 맞는지 확인해야 합니다.",
-            .onboardingNextStepAgentRoot: "- %@ 루트에서 AI 작업을 시작하면 repo-local ./swiftnest와 생성된 문서를 바로 사용할 수 있습니다.",
+            .onboardingNextStepAgentRoot: "- %@ 루트에서 AI 작업을 시작하면 전역 swiftnest 명령과 생성된 문서를 바로 사용할 수 있습니다.",
             .onboardingConfigPromptHeader: "이 저장소용 config/project.yaml을 만듭니다. Enter를 누르면 추론한 기본값을 사용합니다.",
             .onboardingPromptProjectName: "프로젝트 이름",
             .onboardingPromptWatchCompanion: "watchOS companion 라인 포함",
@@ -393,6 +398,7 @@ enum SwiftNestLocalizer {
             .unexpectedPositionalsUpgrade: "upgrade 명령에 예상하지 못한 위치 인자가 있습니다: %@",
             .upgradeRequiresProfile: "upgrade 명령에는 --to <profile>이 필요합니다.",
             .configPathNotFound: "설정 경로를 찾을 수 없습니다: %@",
+            .stateDataVersionTooNew: "저장소 데이터 버전 %d가 현재 SwiftNest CLI가 지원하는 버전(%d)보다 높습니다. 전역 swiftnest 설치를 업그레이드하세요.",
             .upgradedSwiftNest: "SwiftNest를 '%@' 프로필로 업그레이드했습니다.",
             .currentSkills: "현재 스킬: %@",
             .unknownWorkflowSubcommand: "알 수 없는 workflow 하위 명령입니다: %@",
