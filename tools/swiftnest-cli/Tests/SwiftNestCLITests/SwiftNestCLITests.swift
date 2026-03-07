@@ -203,6 +203,27 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "networking", "review"])
     }
 
+    func testOnboardFallsBackToCoreWorkflowsWhenTargetTemplatesDoNotIncludeOnboardingReview() throws {
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = try makeRepositoryFixture(includeOnboardingReviewTemplate: false)
+
+        let parsed = ParsedArguments(
+            values: ["--target": targetRoot.path],
+            flags: ["--non-interactive", "--force"],
+            positionals: []
+        )
+
+        try SwiftNestCLI.runOnboard(parsed: parsed, repository: SwiftNestRepository(rootURL: starterRoot))
+
+        let state = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build"])
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
+            )
+        )
+    }
+
     func testRenderWorkflowSupportsOnboardingReviewTemplate() throws {
         let repositoryRoot = try makeRepositoryFixture()
         let repository = SwiftNestRepository(rootURL: repositoryRoot)
@@ -264,6 +285,40 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: repositoryRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
+            )
+        )
+    }
+
+    func testInitPreservesOnboardingReviewAfterOnboard() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("InitPreserve-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("InitPreserve.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        let onboardParsed = ParsedArguments(
+            values: ["--target": targetRoot.path],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+        try SwiftNestCLI.runOnboard(parsed: onboardParsed, repository: SwiftNestRepository(rootURL: starterRoot))
+
+        let initParsed = ParsedArguments(
+            values: ["--config": "config/project.yaml"],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+        try SwiftNestCLI.runInit(parsed: initParsed, repository: SwiftNestRepository(rootURL: targetRoot))
+
+        let state = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertTrue(state.workflows.contains("onboarding-review"))
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
             )
         )
     }
@@ -340,7 +395,10 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(stderr.contains("오류: macOS에서 SwiftNest CLI를 빌드하려면 swift가 필요합니다."))
     }
 
-    private func makeRepositoryFixture(includeStarterOnlyPaths: Bool = false) throws -> URL {
+    private func makeRepositoryFixture(
+        includeStarterOnlyPaths: Bool = false,
+        includeOnboardingReviewTemplate: Bool = true
+    ) throws -> URL {
         let fileManager = FileManager.default
         let root = fileManager.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -367,7 +425,7 @@ final class SwiftNestCLITests: XCTestCase {
             )
         }
 
-        let filePaths = [
+        var filePaths = [
             "Makefile",
             "swiftnest",
             "harness",
@@ -388,7 +446,6 @@ final class SwiftNestCLITests: XCTestCase {
             "templates/Workflows/build.md",
             "templates/Workflows/fix-bug.md",
             "templates/Workflows/networking.md",
-            "templates/Workflows/onboarding-review.md",
             "templates/Workflows/refactor.md",
             "templates/Workflows/review.md",
             "tools/swiftnest-cli/Package.swift",
@@ -400,6 +457,9 @@ final class SwiftNestCLITests: XCTestCase {
             "tools/swiftnest-cli/Sources/main.swift",
             "tools/swiftnest-cli/Tests/SwiftNestCLITests/SwiftNestCLITests.swift",
         ]
+        if includeOnboardingReviewTemplate {
+            filePaths.append("templates/Workflows/onboarding-review.md")
+        }
         let extendedFilePaths = includeStarterOnlyPaths
             ? filePaths + ["packaging/homebrew/swiftnest.rb.template"]
             : filePaths

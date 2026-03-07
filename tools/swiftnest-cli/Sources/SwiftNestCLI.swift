@@ -338,6 +338,7 @@ enum SwiftNestCLI {
         let profileName = try resolveOnboardingProfile(parsed: parsed, repository: repository, interactive: interactive)
         let profile = try HarnessDocumentLoader.loadObject(at: repository.profileURL(named: profileName))
         let defaultSkills = HarnessDocumentLoader.stringArray(profile, key: "default_skills")
+        let defaultWorkflows = defaultWorkflowsForInit(repository: repository)
         let skills = try resolveOnboardingSkills(
             parsed: parsed,
             defaultSkills: defaultSkills,
@@ -348,7 +349,7 @@ enum SwiftNestCLI {
             parsed: parsed,
             interactive: interactive,
             repository: repository,
-            defaultWorkflows: defaultWorkflowNames
+            defaultWorkflows: defaultWorkflows
         )
         let state = try initializeHarness(
             config: config,
@@ -520,7 +521,7 @@ enum SwiftNestCLI {
 
     static func runWorkflowList(repository: SwiftNestRepository) throws {
         let enabled = try currentWorkflowSet(repository: repository)
-        for definition in orderedWorkflowDefinitions() {
+        for definition in availableWorkflowDefinitions(repository: repository) {
             let kind = definition.isDefault
                 ? SwiftNestLocalizer.text(.workflowKindDefault)
                 : SwiftNestLocalizer.text(.workflowKindOptional)
@@ -537,13 +538,16 @@ enum SwiftNestCLI {
         }
 
         let name = parsed.positionals[0]
+        guard workflowTemplateExists(named: name, repository: repository) else {
+            throw SwiftNestError(SwiftNestLocalizer.text(.unknownWorkflow, name))
+        }
         let (state, config) = try currentStateAndConfig(repository: repository)
         let content = try renderWorkflow(
             named: name,
             config: config,
             profileName: state.profile,
             skills: state.skills,
-            workflows: currentWorkflowSet(from: state, extraNames: []),
+            workflows: currentWorkflowSet(from: state, extraNames: [], repository: repository),
             repository: repository
         )
         print(content)
@@ -551,7 +555,7 @@ enum SwiftNestCLI {
 
     static func runWorkflowScaffold(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
         let (state, config) = try currentStateAndConfig(repository: repository)
-        let workflows = try currentWorkflowSet(from: state, extraNames: parsed.positionals)
+        let workflows = try currentWorkflowSet(from: state, extraNames: parsed.positionals, repository: repository)
         let renderedWorkflows = try scaffoldWorkflowFiles(
             config: config,
             profileName: state.profile,
@@ -592,28 +596,47 @@ enum SwiftNestCLI {
     }
 
     static func currentWorkflowSet(repository: SwiftNestRepository) throws -> [String] {
+        let availableNames = availableWorkflowNames(repository: repository)
         if let state = try? repository.loadState() {
-            return normalizedWorkflowNames(state.workflows)
+            return normalizedWorkflowNames(state.workflows).filter { availableNames.contains($0) }
         }
-        return defaultWorkflowNames
+        return defaultWorkflowNames.filter { availableNames.contains($0) }
     }
 
-    static func currentWorkflowSet(from state: SwiftNestState, extraNames: [String]) throws -> [String] {
-        let base = Set(normalizedWorkflowNames(state.workflows))
-        let extras = try validateWorkflowNames(extraNames)
+    static func currentWorkflowSet(
+        from state: SwiftNestState,
+        extraNames: [String],
+        repository: SwiftNestRepository
+    ) throws -> [String] {
+        let availableNames = availableWorkflowNames(repository: repository)
+        let base = Set(normalizedWorkflowNames(state.workflows).filter { availableNames.contains($0) })
+        let extras = try validateWorkflowNames(extraNames, repository: repository)
         let merged = base.union(extras)
-        return orderedWorkflowDefinitions().map(\.name).filter { merged.contains($0) }
+        return availableWorkflowDefinitions(repository: repository).map(\.name).filter { merged.contains($0) }
     }
 
-    static func validateWorkflowNames(_ names: [String]) throws -> Set<String> {
+    static func validateWorkflowNames(_ names: [String], repository: SwiftNestRepository? = nil) throws -> Set<String> {
         var valid: Set<String> = []
         for name in names {
             guard workflowDefinitions[name] != nil else {
                 throw SwiftNestError(SwiftNestLocalizer.text(.unknownWorkflow, name))
             }
+            if let repository, !workflowTemplateExists(named: name, repository: repository) {
+                throw SwiftNestError(SwiftNestLocalizer.text(.unknownWorkflow, name))
+            }
             valid.insert(name)
         }
         return valid
+    }
+
+    static func defaultWorkflowsForInit(repository: SwiftNestRepository) -> [String] {
+        if let state = try? repository.loadState() {
+            let current = normalizedWorkflowNames(state.workflows).filter { workflowTemplateExists(named: $0, repository: repository) }
+            if !current.isEmpty {
+                return current
+            }
+        }
+        return defaultWorkflowNames.filter { workflowTemplateExists(named: $0, repository: repository) }
     }
 
     static func parse(_ args: [String], valueOptions: Set<String>, flagOptions: Set<String>) throws -> ParsedArguments {

@@ -94,6 +94,22 @@ extension SwiftNestCLI {
         (defaultWorkflowNames + optionalWorkflowNames).compactMap { workflowDefinitions[$0] }
     }
 
+    static func workflowTemplateExists(named name: String, repository: SwiftNestRepository) -> Bool {
+        guard let definition = workflowDefinitions[name] else {
+            return false
+        }
+        let templateURL = repository.templatesURL.appendingPathComponent(definition.templatePath)
+        return repository.fileManager.fileExists(atPath: templateURL.path)
+    }
+
+    static func availableWorkflowDefinitions(repository: SwiftNestRepository) -> [SwiftNestWorkflowDefinition] {
+        orderedWorkflowDefinitions().filter { workflowTemplateExists(named: $0.name, repository: repository) }
+    }
+
+    static func availableWorkflowNames(repository: SwiftNestRepository) -> Set<String> {
+        Set(availableWorkflowDefinitions(repository: repository).map(\.name))
+    }
+
     static func normalizedWorkflowNames(_ workflows: [String]) -> [String] {
         let valid = workflows.filter { workflowDefinitions[$0] != nil }
         let merged = Set(defaultWorkflowNames).union(valid)

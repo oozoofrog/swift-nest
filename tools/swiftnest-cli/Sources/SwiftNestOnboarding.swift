@@ -140,7 +140,7 @@ extension SwiftNestCLI {
             parsed: parsed,
             interactive: interactive,
             repository: targetRepository,
-            defaultWorkflows: defaultOnboardingWorkflowNames
+            defaultWorkflows: onboardingDefaultWorkflows(repository: targetRepository)
         )
 
         let result = try initializeHarness(
@@ -505,24 +505,35 @@ extension SwiftNestCLI {
         repository: SwiftNestRepository,
         defaultWorkflows: [String]
     ) throws -> [String] {
+        let definitions = availableWorkflowDefinitions(repository: repository)
+        let availableNames = Set(definitions.map(\.name))
+        let availableDefaultWorkflows = defaultWorkflows.filter { availableNames.contains($0) }
+
         if let rawWorkflows = parsed.value(for: "--workflows"), !rawWorkflows.isEmpty {
             let names = rawWorkflows
                 .split(separator: ",")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
-            let validated = try validateWorkflowNames(names)
-            let merged = Set(defaultWorkflows).union(validated)
-            return orderedWorkflowDefinitions().map(\.name).filter { merged.contains($0) }
+            let validated = try validateWorkflowNames(names, repository: repository)
+            let merged = Set(availableDefaultWorkflows).union(validated)
+            return definitions.map(\.name).filter { merged.contains($0) }
         }
         if interactive {
-            return try chooseWorkflowsInteractively(defaultWorkflows: defaultWorkflows)
+            return try chooseWorkflowsInteractively(defaultWorkflows: availableDefaultWorkflows, repository: repository)
         }
-        return defaultWorkflows
+        return availableDefaultWorkflows
     }
 
-    static func chooseWorkflowsInteractively(defaultWorkflows: [String]) throws -> [String] {
+    static func onboardingDefaultWorkflows(repository: SwiftNestRepository) -> [String] {
+        defaultOnboardingWorkflowNames.filter { workflowTemplateExists(named: $0, repository: repository) }
+    }
+
+    static func chooseWorkflowsInteractively(
+        defaultWorkflows: [String],
+        repository: SwiftNestRepository
+    ) throws -> [String] {
         print(SwiftNestLocalizer.text(.availableWorkflowsHeader))
-        let definitions = orderedWorkflowDefinitions()
+        let definitions = availableWorkflowDefinitions(repository: repository)
         for (index, workflow) in definitions.enumerated() {
             let kind = workflow.isDefault
                 ? SwiftNestLocalizer.text(.workflowKindDefault)
@@ -552,12 +563,15 @@ extension SwiftNestCLI {
     }
 
     static func printOnboardingAlreadyCompletedSummary(state: SwiftNestState, repository: SwiftNestRepository) {
+        let workflows = normalizedWorkflowNames(state.workflows)
         print(SwiftNestLocalizer.text(.onboardingAlreadyCompleted, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.onboardingCurrentProfile, state.profile))
         print(SwiftNestLocalizer.text(.onboardingCurrentSkills, state.skills.joined(separator: ", ")))
-        print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, normalizedWorkflowNames(state.workflows).joined(separator: ", ")))
-        print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
-        print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
+        print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, workflows.joined(separator: ", ")))
+        if workflows.contains("onboarding-review") {
+            print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
+            print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
+        }
         print(SwiftNestLocalizer.text(.onboardingUseForceToRerun))
     }
 
@@ -579,14 +593,19 @@ extension SwiftNestCLI {
         print("  - Docs/AI_SKILLS/*")
         print("  - .ai-harness/state.json")
         print("  - .ai-harness/rendered_context.md")
+        if result.workflows.contains("onboarding-review") {
+            print("  - .ai-harness/workflows/onboarding-review.md")
+        }
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisHeader))
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisLine1))
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisLine2))
         print(SwiftNestLocalizer.text(.onboardingNextStepsHeader))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewConfig, configURL.path))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewAgents))
-        print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
-        print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
+        if result.workflows.contains("onboarding-review") {
+            print(SwiftNestLocalizer.text(.onboardingNextStepReviewWorkflow))
+            print(SwiftNestLocalizer.text(.onboardingNextStepReviewGoals))
+        }
         print(SwiftNestLocalizer.text(.onboardingNextStepAgentRoot, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
     }
