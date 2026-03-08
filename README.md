@@ -68,7 +68,7 @@ swiftnest onboard \
 
 Use the source checkout's `./swiftnest` only when developing SwiftNest itself. Managed target repositories are expected to use the global `swiftnest` command.
 
-When you run `onboard` or `install` from the target repository root, SwiftNest uses the current working directory as the default target. Keep `--target <path>` for cases where you are bootstrapping a different repository.
+When you omit `--target`, SwiftNest first looks for the current SwiftNest-managed repository root, then for the current Git repository root, and asks for confirmation before using that inferred location. Keep `--target <path>` for non-interactive flows or when you are bootstrapping a different repository.
 
 ## Homebrew Packaging
 

@@ -87,6 +87,12 @@ enum SwiftNestMessageKey: Hashable {
     case onboardingPromptTestCommand
     case onboardingPromptBooleanRetry
     case onboardingSkillSummaryFallback
+    case implicitTargetConfirmationHeader
+    case implicitTargetConfirmationTarget
+    case implicitTargetConfirmationGitDetected
+    case implicitTargetConfirmationNoGit
+    case implicitTargetConfirmationPrompt
+    case operationCancelled
     case unexpectedPositionalsInstall
     case installStarterCheckoutRequiresTarget
     case installRequiresTarget
@@ -244,6 +250,12 @@ enum SwiftNestLocalizer {
             .onboardingPromptTestCommand: "Test command",
             .onboardingPromptBooleanRetry: "Please answer with yes or no.",
             .onboardingSkillSummaryFallback: "Review the generated skill file for details.",
+            .implicitTargetConfirmationHeader: "No --target was provided for %@.",
+            .implicitTargetConfirmationTarget: "Resolved target: %@",
+            .implicitTargetConfirmationGitDetected: "Git repository root detected: %@",
+            .implicitTargetConfirmationNoGit: "No Git repository root detected from %@.",
+            .implicitTargetConfirmationPrompt: "Continue with this target? [y/N]: ",
+            .operationCancelled: "Operation cancelled.",
             .unexpectedPositionalsInstall: "Unexpected positional arguments for install: %@",
             .installStarterCheckoutRequiresTarget: "Running install from the SwiftNest starter checkout requires --target <path> so the target app repository is updated instead of the starter itself.",
             .installRequiresTarget: "install requires --target <path>.",
@@ -387,6 +399,12 @@ enum SwiftNestLocalizer {
             .onboardingPromptTestCommand: "테스트 명령",
             .onboardingPromptBooleanRetry: "예 또는 아니오로 답해주세요.",
             .onboardingSkillSummaryFallback: "자세한 내용은 생성된 스킬 문서를 확인하세요.",
+            .implicitTargetConfirmationHeader: "%@ 명령에 --target이 지정되지 않았습니다.",
+            .implicitTargetConfirmationTarget: "확인된 대상 경로: %@",
+            .implicitTargetConfirmationGitDetected: "감지된 Git 저장소 루트: %@",
+            .implicitTargetConfirmationNoGit: "%@에서 위로 올라가며 Git 저장소 루트를 찾지 못했습니다.",
+            .implicitTargetConfirmationPrompt: "이 경로로 계속 진행할까요? [y/N]: ",
+            .operationCancelled: "작업을 취소했습니다.",
             .unexpectedPositionalsInstall: "install 명령에 예상하지 못한 위치 인자가 있습니다: %@",
             .installStarterCheckoutRequiresTarget: "SwiftNest 스타터 체크아웃에서 install을 실행할 때는 스타터 자체가 아니라 대상 앱 저장소를 갱신하도록 --target <path>가 필요합니다.",
             .installRequiresTarget: "install 명령에는 --target <path>가 필요합니다.",

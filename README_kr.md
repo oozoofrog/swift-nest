@@ -68,7 +68,7 @@ swiftnest onboard \
 
 소스 체크아웃의 `./swiftnest` 는 SwiftNest 자체를 개발할 때만 사용하고, 관리 대상 저장소에서는 전역 `swiftnest` 명령을 사용합니다.
 
-대상 저장소 루트에서 `onboard` 또는 `install`을 실행하면 SwiftNest가 현재 작업 디렉터리를 기본 타겟으로 사용합니다. 다른 저장소를 부트스트랩할 때만 `--target <path>`를 명시하면 됩니다.
+`--target`을 생략하면 SwiftNest는 먼저 현재 SwiftNest 관리 저장소 루트를 찾고, 없으면 현재 Git 저장소 루트를 찾은 뒤, 그 경로를 기본 타겟으로 사용할지 확인을 요청합니다. 비대화식 실행이거나 다른 저장소를 부트스트랩할 때는 `--target <path>`를 명시하세요.
 
 ## Homebrew 패키징
 

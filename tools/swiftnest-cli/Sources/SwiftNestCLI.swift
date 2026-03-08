@@ -177,6 +177,28 @@ struct SwiftNestRepository {
         throw SwiftNestError(SwiftNestLocalizer.text(.couldNotLocateRepositoryRoot))
     }
 
+    static func findGitRepositoryRoot(
+        currentDirectoryURL: URL,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        var current = currentDirectoryURL.resolvingSymlinksInPath().standardizedFileURL
+
+        while true {
+            let gitURL = current.appendingPathComponent(".git")
+            if fileManager.fileExists(atPath: gitURL.path) {
+                return current
+            }
+
+            let parent = current.deletingLastPathComponent()
+            if parent.path == current.path {
+                break
+            }
+            current = parent
+        }
+
+        return nil
+    }
+
     static func isRepositoryRoot(_ url: URL) -> Bool {
         let fileManager = FileManager.default
         return fileManager.fileExists(atPath: url.appendingPathComponent("templates/Docs/AI_RULES.md").path)
@@ -267,7 +289,6 @@ enum SwiftNestCLI {
         "intermediate": "- Verify layer boundaries and regression risk before finishing.",
         "advanced": "- Verify privacy, performance, concurrency safety, and regression protection before finishing.",
     ]
-
     static func run(arguments: [String]) throws {
         guard let command = arguments.first else {
             printTopLevelUsage()
@@ -372,7 +393,13 @@ enum SwiftNestCLI {
     static func runInstall(
         parsed: ParsedArguments,
         repository: SwiftNestRepository,
-        currentDirectoryURL: URL? = nil
+        currentDirectoryURL: URL? = nil,
+        standardInputIsTTY: () -> Bool = {
+            isatty(fileno(stdin)) != 0
+        },
+        lineReader: () -> String? = {
+            readLine()
+        }
     ) throws {
         guard parsed.positionals.isEmpty else {
             throw SwiftNestError(
@@ -383,7 +410,9 @@ enum SwiftNestCLI {
         let targetURL = try resolveInstallTargetURL(
             parsed: parsed,
             repository: repository,
-            currentDirectoryURL: currentDirectoryURL
+            currentDirectoryURL: currentDirectoryURL,
+            standardInputIsTTY: standardInputIsTTY,
+            lineReader: lineReader
         )
         if targetURL.path == repository.rootURL.standardizedFileURL.path {
             throw SwiftNestError(SwiftNestLocalizer.text(.targetRepositoryMustDiffer))
@@ -412,7 +441,13 @@ enum SwiftNestCLI {
     static func resolveInstallTargetURL(
         parsed: ParsedArguments,
         repository: SwiftNestRepository,
-        currentDirectoryURL: URL? = nil
+        currentDirectoryURL: URL? = nil,
+        standardInputIsTTY: () -> Bool = {
+            isatty(fileno(stdin)) != 0
+        },
+        lineReader: () -> String? = {
+            readLine()
+        }
     ) throws -> URL {
         if let rawTarget = parsed.value(for: "--target"), !rawTarget.isEmpty {
             return URL(fileURLWithPath: rawTarget, isDirectory: true).standardizedFileURL
@@ -430,7 +465,60 @@ enum SwiftNestCLI {
             throw SwiftNestError(SwiftNestLocalizer.text(.installStarterCheckoutRequiresTarget))
         }
 
-        return currentDirectoryURL
+        if let managedRepository = SwiftNestRepository.findManagedRepository(
+            assetRootURL: assetRootURL,
+            currentDirectoryPath: currentDirectoryURL.path
+        ) {
+            return managedRepository.rootURL
+        }
+
+        guard standardInputIsTTY() else {
+            throw SwiftNestError(SwiftNestLocalizer.text(.installRequiresTarget))
+        }
+
+        let gitRootURL = SwiftNestRepository.findGitRepositoryRoot(
+            currentDirectoryURL: currentDirectoryURL,
+            fileManager: repository.fileManager
+        )
+        let implicitTargetURL = gitRootURL ?? currentDirectoryURL
+        try confirmImplicitTarget(
+            commandName: "install",
+            targetURL: implicitTargetURL,
+            currentDirectoryURL: currentDirectoryURL,
+            gitRepositoryRootURL: gitRootURL,
+            lineReader: lineReader
+        )
+        return implicitTargetURL
+    }
+
+    static func confirmImplicitTarget(
+        commandName: String,
+        targetURL: URL,
+        currentDirectoryURL: URL,
+        gitRepositoryRootURL: URL?,
+        lineReader: () -> String? = {
+            readLine()
+        }
+    ) throws {
+        print(SwiftNestLocalizer.text(.implicitTargetConfirmationHeader, commandName))
+        print(SwiftNestLocalizer.text(.implicitTargetConfirmationTarget, targetURL.path))
+        if let gitRepositoryRootURL {
+            print(SwiftNestLocalizer.text(.implicitTargetConfirmationGitDetected, gitRepositoryRootURL.path))
+        } else {
+            print(SwiftNestLocalizer.text(.implicitTargetConfirmationNoGit, currentDirectoryURL.path))
+        }
+
+        while true {
+            print(SwiftNestLocalizer.text(.implicitTargetConfirmationPrompt), terminator: "")
+            let raw = lineReader()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+            if raw.isEmpty || ["n", "no", "아니오", "아니요"].contains(raw) {
+                throw SwiftNestError(SwiftNestLocalizer.text(.operationCancelled))
+            }
+            if ["y", "yes", "예", "네"].contains(raw) {
+                return
+            }
+            print(SwiftNestLocalizer.text(.onboardingPromptBooleanRetry))
+        }
     }
 
     static func runInit(parsed: ParsedArguments, repository: SwiftNestRepository) throws {

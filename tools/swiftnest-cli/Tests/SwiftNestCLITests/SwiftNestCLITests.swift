@@ -76,22 +76,65 @@ final class SwiftNestCLITests: XCTestCase {
         }
     }
 
-    func testInstallDefaultsTargetToCurrentDirectoryWhenOmitted() throws {
+    func testInstallPromptsAndUsesCurrentGitRepositoryRootWhenTargetIsOmitted() throws {
         let assetRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
         let targetRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: targetRoot.appendingPathComponent(".git", isDirectory: true),
+            withIntermediateDirectories: true
+        )
 
         try SwiftNestCLI.runInstall(
             parsed: ParsedArguments(values: [:], flags: [], positionals: []),
             repository: SwiftNestRepository(rootURL: assetRoot),
-            currentDirectoryURL: targetRoot
+            currentDirectoryURL: targetRoot,
+            standardInputIsTTY: { true },
+            lineReader: { "y" }
         )
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: targetRoot.appendingPathComponent("Makefile").path))
         XCTAssertTrue(
             FileManager.default.fileExists(atPath: targetRoot.appendingPathComponent("templates/Docs/AI_RULES.md").path)
         )
+    }
+
+    func testInstallWithoutTargetUsesManagedRepositoryRootInsteadOfCurrentSubdirectory() throws {
+        let assetRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
+        let targetRoot = try makeRepositoryFixture()
+        let nestedDirectory = targetRoot.appendingPathComponent("Sources/Feature", isDirectory: true)
+        try FileManager.default.createDirectory(at: nestedDirectory, withIntermediateDirectories: true)
+
+        try SwiftNestCLI.runInstall(
+            parsed: ParsedArguments(values: [:], flags: [], positionals: []),
+            repository: SwiftNestRepository(rootURL: assetRoot),
+            currentDirectoryURL: nestedDirectory
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: nestedDirectory.appendingPathComponent("Makefile").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: targetRoot.appendingPathComponent("Makefile").path))
+    }
+
+    func testInstallRequiresExplicitTargetOutsideManagedRepositoryWhenConfirmationIsUnavailable() throws {
+        let assetRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
+        let targetRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        XCTAssertThrowsError(
+            try SwiftNestCLI.runInstall(
+                parsed: ParsedArguments(values: [:], flags: [], positionals: []),
+                repository: SwiftNestRepository(rootURL: assetRoot),
+                currentDirectoryURL: targetRoot,
+                standardInputIsTTY: { false }
+            )
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(swiftNestError.message, "install requires --target <path>.")
+        }
     }
 
     func testInstallFromStarterCheckoutWithoutTargetUsesLocalizedError() throws {
@@ -626,18 +669,47 @@ final class SwiftNestCLITests: XCTestCase {
         }
     }
 
-    func testOnboardDefaultsTargetToCurrentDirectoryOutsideRepositoryContext() throws {
+    func testOnboardRequiresTargetWhenOutsideRepositoryContextAndConfirmationIsUnavailable() throws {
         let repository = SwiftNestRepository(rootURL: try makeRepositoryFixture())
         let outsideURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: outsideURL, withIntermediateDirectories: true)
 
+        XCTAssertThrowsError(
+            try SwiftNestCLI.resolveOnboardingTargetURL(
+                parsed: ParsedArguments(values: [:], flags: ["--non-interactive"], positionals: []),
+                repository: repository,
+                currentDirectoryURL: outsideURL
+            )
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                "onboard requires --target <path> when you are not already inside a SwiftNest-managed repository."
+            )
+        }
+    }
+
+    func testOnboardPromptsAndUsesGitRepositoryRootWhenTargetIsOmitted() throws {
+        let repository = SwiftNestRepository(rootURL: try makeRepositoryFixture())
+        let gitRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let nestedDirectory = gitRoot.appendingPathComponent("App/Sources", isDirectory: true)
+        try FileManager.default.createDirectory(at: nestedDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: gitRoot.appendingPathComponent(".git", isDirectory: true),
+            withIntermediateDirectories: true
+        )
         let resolved = try SwiftNestCLI.resolveOnboardingTargetURL(
             parsed: ParsedArguments(values: [:], flags: [], positionals: []),
             repository: repository,
-            currentDirectoryURL: outsideURL
+            currentDirectoryURL: nestedDirectory,
+            standardInputIsTTY: { true },
+            lineReader: { "y" }
         )
 
-        XCTAssertEqual(resolved, outsideURL.standardizedFileURL)
+        XCTAssertEqual(resolved, gitRoot.standardizedFileURL)
     }
 
     func testOnboardRequiresTargetFromStarterCheckout() throws {
