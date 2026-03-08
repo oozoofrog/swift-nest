@@ -37,6 +37,7 @@ You are working in the {{PROJECT_NAME}} codebase scaffolded by SwiftNest.
 ## Feature Development Expectations
 - Keep user-visible behavior, generated docs, and verification guidance aligned.
 - Add or update tests for non-trivial CLI/runtime behavior changes.
+- If SwiftNest generated repo-local agent bundles under `.agents/skills/`, refresh them through SwiftNest commands instead of editing them by hand.
 - Keep diffs minimal and avoid unrelated refactors.
 
 ## Completion Expectations

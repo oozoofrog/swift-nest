@@ -23,6 +23,9 @@ SwiftNest generates project-facing documents and state files like this:
 
 ```text
 AGENTS.md
+.agents/
+  skills/
+    swiftnest-.../SKILL.md   # optional when --skill-agent codex is selected
 Docs/
   AI_RULES.md
   AI_WORKFLOWS.md
@@ -33,6 +36,7 @@ Docs/
   state.json
   selected_profile.yaml
   selected_skills.txt
+  selected_skill_agent.txt
   rendered_context.md
   workflows/
     add-feature.md
@@ -42,7 +46,7 @@ Docs/
     onboarding-review.md
 ```
 
-`Docs/` and `.swiftnest/` are first-class harness assets. Track them in version control by default.
+`Docs/`, `.swiftnest/`, and generated `.agents/skills/` bundles are first-class harness assets. Track them in version control by default.
 
 The source repository keeps a repo-local `./swiftnest` shell entrypoint for developing SwiftNest itself. Managed target repositories do not receive a repo-local CLI wrapper or CLI sources; they use the globally installed `swiftnest` command instead.
 To avoid overlapping bootstrap builds while developing the starter itself, the local wrapper now serializes builds and defaults to `SWIFTNEST_BUILD_JOBS=1`. Override it explicitly when you want more parallelism, for example `SWIFTNEST_BUILD_JOBS=2 ./swiftnest --help`.
@@ -54,9 +58,9 @@ If an agent only receives this GitHub link, the expected installation flow is:
 1. Make sure the global `swiftnest` command is installed and available on `PATH`.
 2. Read the README from this repository first.
 3. Run the global `swiftnest` command with `onboard` against the target app repository.
-4. Review the generated `config/project.yaml`, `AGENTS.md`, and `Docs/` output in the target repository.
+4. Review the generated `config/project.yaml`, `AGENTS.md`, `Docs/`, and optional `.agents/skills/` output in the target repository.
 5. Start agent work from the target repository root.
-6. Commit the generated `Docs/` and `.swiftnest/` files in the target repository.
+6. Commit the generated `Docs/`, `.swiftnest/`, and `.agents/skills/` files in the target repository when present.
 
 Example:
 
@@ -111,6 +115,7 @@ swiftnest onboard \
   --config config/project.yaml \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,testing-rules,location-rules \
+  --skill-agent codex \
   --workflows permissions,review \
   --non-interactive
 ```
@@ -158,7 +163,7 @@ Recommended flow:
 3. Run `onboard` into the new repository so SwiftNest installs, creates config, and initializes docs in one flow.
 4. Review `config/project.yaml` and the generated `AGENTS.md`.
 5. Start with a light profile and a small skill set if you need to rerun onboarding with explicit options.
-6. Commit the generated `Docs/` and `.swiftnest/`.
+6. Commit the generated `Docs/`, `.swiftnest/`, and `.agents/skills/` when present.
 
 Example:
 
@@ -306,9 +311,9 @@ Follow this process:
    swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
 4. Start the first follow-up review from ./.swiftnest/workflows/onboarding-review.md.
 5. Review config/project.yaml so it reflects the actual project state.
-6. Review the generated AGENTS.md, Docs/, and .swiftnest/ output.
+6. Review the generated AGENTS.md, Docs/, .swiftnest/, and optional .agents/skills/ output.
 7. If needed, rerun swiftnest onboard or swiftnest init with explicit profile, skills, or workflows.
-8. Keep Docs/ and .swiftnest/ checked into the repository.
+8. Keep Docs/, .swiftnest/, and generated .agents/skills/ checked into the repository.
 9. Summarize the selected profile, selected skills, generated files, any workflow changes, and any assumptions.
 
 Constraints:
@@ -330,8 +335,11 @@ Other files in `.swiftnest/`:
 
 - `selected_profile.yaml`
 - `selected_skills.txt`
+- `selected_skill_agent.txt`
 - `rendered_context.md`
 - `workflows/*.md`
+
+When `--skill-agent codex` is selected, SwiftNest also installs repo-local Codex bundles under `.agents/skills/`.
 
 Paths inside the state file are stored relative to the repository when possible, so SwiftNest survives being moved to another machine.
 

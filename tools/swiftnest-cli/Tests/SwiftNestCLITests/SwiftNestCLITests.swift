@@ -1,5 +1,10 @@
 import Foundation
 import XCTest
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 @testable import SwiftNestCLI
 
 final class SwiftNestCLITests: XCTestCase {
@@ -162,22 +167,65 @@ final class SwiftNestCLITests: XCTestCase {
     func testLocalizedUsageAndPromptStringsAreAvailableInKorean() {
         XCTAssertTrue(SwiftNestLocalizer.text(.usageTopLevel, language: .ko).contains("사용법"))
         XCTAssertTrue(SwiftNestLocalizer.text(.usageTopLevel, language: .ko).contains("onboard"))
+        XCTAssertTrue(SwiftNestLocalizer.text(.usageOnboard, language: .ko).contains("--skill-agent <none|codex>"))
         XCTAssertTrue(SwiftNestLocalizer.text(.chooseProfileNumberPrompt, language: .ko, "2").contains("프로필 번호"))
     }
 
     func testCodexSkillOnboardingFollowUpStringsAreLocalized() {
+        let command = "swiftnest init --config config/project.yaml --profile intermediate --skills ios-architecture --workflows add-feature,fix-bug,refactor,build,onboarding-review --skill-agent codex"
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .en).contains("Codex skill onboarding")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded, language: .en, command).contains("swiftnest init")
         )
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .en).contains(".swiftnest/selected_skills.txt")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsInstalled, language: .en, ".agents/skills").contains(".agents/skills")
         )
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .ko).contains("추가 Codex 스킬 온보딩")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded, language: .en, command).contains("--skill-agent codex")
         )
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .ko).contains("자동 등록")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded, language: .ko, command).contains("swiftnest init")
         )
+        XCTAssertTrue(
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded, language: .ko, command).contains("--skill-agent codex")
+        )
+        XCTAssertTrue(
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsInstalled, language: .ko, ".agents/skills").contains(".agents/skills")
+        )
+    }
+
+    func testCodexSkillAgentFollowUpCommandUsesExplicitInitArguments() throws {
+        let fileManager = FileManager.default
+        let repositoryRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("SwiftNest Follow Up \(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: repositoryRoot, withIntermediateDirectories: true)
+
+        let repository = SwiftNestRepository(rootURL: repositoryRoot)
+        let command = SwiftNestCLI.codexSkillAgentFollowUpCommand(
+            configURL: repositoryRoot.appendingPathComponent("Config Folder/project file.yaml"),
+            state: SwiftNestState(
+                profile: "basic",
+                skills: ["ios-architecture"],
+                workflows: ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "review"],
+                configPath: "Config Folder/project file.yaml",
+                contextPath: ".swiftnest/rendered_context.md"
+            ),
+            repository: repository
+        )
+
+        XCTAssertEqual(
+            command,
+            "swiftnest init --config 'Config Folder/project file.yaml' --profile basic --skills ios-architecture --workflows add-feature,fix-bug,refactor,build,onboarding-review,review --skill-agent codex"
+        )
+    }
+
+    func testResolveSkillAgentSelectionRejectsUnknownValue() {
+        XCTAssertThrowsError(try SwiftNestCLI.validateSkillAgentSelection("claude")) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(swiftNestError.message, "Unknown skill agent: claude. Supported values: none, codex.")
+        }
     }
 
     func testWorkflowRuntimeDescriptionIsLocalized() throws {
@@ -330,9 +378,11 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("AGENTS.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("Docs/AI_RULES.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/state.json").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/networking.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/review.md").path))
+        XCTAssertFalse(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".agents/skills").path))
 
         let configText = try String(contentsOf: targetRoot.appendingPathComponent("config/project.yaml"), encoding: .utf8)
         XCTAssertTrue(configText.contains("project_name: SampleApp"))
@@ -346,6 +396,415 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.profile, "intermediate")
         XCTAssertEqual(state.skills, ["concurrency-rules", "ios-architecture", "networking-rules", "swiftui-rules", "testing-rules"])
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "networking", "review"])
+        XCTAssertNil(state.skillAgent)
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "none\n"
+        )
+    }
+
+    func testOnboardWithCodexSkillAgentCreatesRepoLocalAgentSkills() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("CodexSkillTarget-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+
+        let parsed = ParsedArguments(
+            values: [
+                "--target": targetRoot.path,
+                "--skill-agent": "codex",
+            ],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+
+        try SwiftNestCLI.runOnboard(parsed: parsed, repository: SwiftNestRepository(rootURL: starterRoot))
+
+        let skillURL = targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md")
+        XCTAssertTrue(fileManager.fileExists(atPath: skillURL.path))
+
+        let skillText = try String(contentsOf: skillURL, encoding: .utf8)
+        XCTAssertTrue(skillText.contains("name: \"swiftnest-ios-architecture\""))
+        XCTAssertTrue(skillText.contains("Apply this skill whenever the task touches app structure"))
+
+        let state = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(state.skillAgent, "codex")
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "codex\n"
+        )
+    }
+
+    func testOnboardCanEnableCodexSkillAgentWhenRepositoryIsAlreadyManaged() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("ManagedCodexEnable-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("ManagedCodexEnable.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--workflows": "review",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+        let initialState = try SwiftNestRepository(rootURL: targetRoot).loadState()
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let updatedState = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(updatedState.profile, initialState.profile)
+        XCTAssertEqual(updatedState.skills, initialState.skills)
+        XCTAssertEqual(updatedState.workflows, initialState.workflows)
+        XCTAssertEqual(updatedState.skillAgent, "codex")
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+    }
+
+    func testOnboardForcePreservesStoredSelectionsWhenOptionsAreOmitted() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("ManagedForcePreserve-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("ManagedForcePreserve.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "basic",
+                    "--workflows": "review",
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+        let initialState = try SwiftNestRepository(rootURL: targetRoot).loadState()
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: ["--target": targetRoot.path],
+                flags: ["--non-interactive", "--force"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let updatedState = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(updatedState.profile, initialState.profile)
+        XCTAssertEqual(updatedState.skills, initialState.skills)
+        XCTAssertEqual(updatedState.workflows, initialState.workflows)
+        XCTAssertEqual(updatedState.skillAgent, initialState.skillAgent)
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+    }
+
+    func testOnboardProfileRefreshWithoutExplicitSkillsPreservesStoredSkillSelection() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("ManagedProfileRefresh-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("ManagedProfileRefresh.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "basic",
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+        let initialState = try SwiftNestRepository(rootURL: targetRoot).loadState()
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "intermediate",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let updatedState = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(updatedState.profile, "intermediate")
+        XCTAssertEqual(updatedState.skills, initialState.skills)
+        XCTAssertEqual(updatedState.workflows, initialState.workflows)
+        XCTAssertEqual(updatedState.skillAgent, initialState.skillAgent)
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+        XCTAssertFalse(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent(".agents/skills/swiftnest-testing-rules/SKILL.md").path
+            )
+        )
+        XCTAssertFalse(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent("Docs/AI_SKILLS/testing-rules.md").path
+            )
+        )
+    }
+
+    func testOnboardProfileRefreshWithoutExplicitSkillsPreservesRepoLocalCustomSkillSelection() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("ManagedCustomSkillRefresh-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("ManagedCustomSkillRefresh.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "basic",
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let repository = SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        let customSkillContents = """
+        # Custom Skill
+
+        Use this skill whenever the repository needs custom domain guidance.
+        """
+        let customSkillURL = targetRoot.appendingPathComponent("Docs/AI_SKILLS/custom-skill.md")
+        try customSkillContents.write(to: customSkillURL, atomically: true, encoding: .utf8)
+
+        let customBundleContents = """
+        ---
+        name: "swiftnest-custom-skill"
+        description: "Custom bundle"
+        ---
+
+        Hand-authored custom skill bundle.
+        """
+        let customBundleDirectoryURL = targetRoot.appendingPathComponent(".agents/skills/swiftnest-custom-skill", isDirectory: true)
+        try fileManager.createDirectory(at: customBundleDirectoryURL, withIntermediateDirectories: true)
+        let customBundleURL = customBundleDirectoryURL.appendingPathComponent("SKILL.md")
+        try customBundleContents.write(to: customBundleURL, atomically: true, encoding: .utf8)
+
+        var state = try repository.loadState()
+        state.skills.append("custom-skill")
+        try repository.saveState(state)
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "intermediate",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let updatedState = try repository.loadState()
+        XCTAssertEqual(updatedState.profile, "intermediate")
+        XCTAssertEqual(updatedState.skills, ["custom-skill", "ios-architecture"])
+        XCTAssertEqual(updatedState.skillAgent, "codex")
+        XCTAssertEqual(try String(contentsOf: customSkillURL, encoding: .utf8), customSkillContents)
+        XCTAssertEqual(try String(contentsOf: customBundleURL, encoding: .utf8), customBundleContents)
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent(".swiftnest/selected_skills.txt"), encoding: .utf8),
+            "custom-skill\nios-architecture\n"
+        )
+    }
+
+    func testOnboardProfileRefreshWithoutExplicitSkillsPreservesExplicitlyEmptyStoredSkillSelection() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("ManagedEmptySkillRefresh-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("ManagedEmptySkillRefresh.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "basic",
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let repository = SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        var prunedState = try repository.loadState()
+        prunedState.skills = []
+        try repository.saveState(prunedState)
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "intermediate",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let updatedState = try repository.loadState()
+        XCTAssertEqual(updatedState.profile, "intermediate")
+        XCTAssertEqual(updatedState.skills, [])
+        XCTAssertEqual(updatedState.skillAgent, "codex")
+        XCTAssertFalse(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent("Docs/AI_SKILLS/ios-architecture.md").path
+            )
+        )
+        XCTAssertFalse(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+    }
+
+    func testOnboardFailsWhenProfileDefaultSkillTemplateIsMissing() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("BrokenProfileSkills-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("BrokenProfileSkills.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try """
+        name: basic
+        description: Broken packaged profile.
+        default_skills:
+          - ios-architecture
+          - missing-skill
+        """.write(
+            to: starterRoot.appendingPathComponent("profiles/basic.yaml"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.runOnboard(
+                parsed: ParsedArguments(
+                    values: [
+                        "--target": targetRoot.path,
+                        "--profile": "basic",
+                    ],
+                    flags: ["--non-interactive"],
+                    positionals: []
+                ),
+                repository: SwiftNestRepository(rootURL: starterRoot)
+            )
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(swiftNestError.message, "Unknown skill template: missing-skill")
+        }
+    }
+
+    func testOnboardWithExplicitWorkflowsOnManagedRepositoryUsesOnboardingDefaults() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("ManagedWorkflowRefresh-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("ManagedWorkflowRefresh.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--workflows": "review",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--workflows": "networking",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let updatedState = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(
+            updatedState.workflows,
+            ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "networking"]
+        )
+        XCTAssertNil(updatedState.skillAgent)
     }
 
     func testOnboardPreservesExistingLegacyNamedPathsInTargetRepository() throws {
@@ -564,6 +1023,296 @@ final class SwiftNestCLITests: XCTestCase {
         )
     }
 
+    func testInitPreservesStoredSkillAgentWhenOptionIsOmitted() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("InitCodexPreserve-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("InitCodexPreserve.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        try SwiftNestCLI.runInit(
+            parsed: ParsedArguments(
+                values: ["--config": "config/project.yaml"],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        )
+
+        let state = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(state.skillAgent, "codex")
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "codex\n"
+        )
+    }
+
+    func testInitCanExplicitlyClearStoredSkillAgent() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("InitCodexClear-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("InitCodexClear.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        try SwiftNestCLI.runInit(
+            parsed: ParsedArguments(
+                values: [
+                    "--config": "config/project.yaml",
+                    "--skill-agent": "none",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        )
+
+        let state = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertNil(state.skillAgent)
+        XCTAssertFalse(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".agents/skills").path))
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "none\n"
+        )
+    }
+
+    func testCleanupCodexSkillEnvironmentWithoutManifestPreservesNonGeneratedPrefixedBundles() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("CleanupCodexFallback-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("CleanupCodexFallback.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let repository = SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        let customSkillDirectoryURL = repository.agentSkillsDirectoryURL.appendingPathComponent("swiftnest-custom", isDirectory: true)
+        try fileManager.createDirectory(at: customSkillDirectoryURL, withIntermediateDirectories: true)
+        try """
+        ---
+        name: "swiftnest-custom"
+        description: "Custom skill"
+        ---
+
+        Hand-authored skill bundle.
+        """.write(
+            to: customSkillDirectoryURL.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try fileManager.removeItem(at: repository.agentSkillStateDirectoryURL.appendingPathComponent("codex_manifest.json"))
+
+        try SwiftNestCLI.cleanupCodexSkillEnvironment(repository: repository)
+
+        XCTAssertTrue(fileManager.fileExists(atPath: customSkillDirectoryURL.appendingPathComponent("SKILL.md").path))
+        XCTAssertFalse(
+            fileManager.fileExists(
+                atPath: repository.agentSkillsDirectoryURL.appendingPathComponent("swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+        XCTAssertFalse(
+            fileManager.fileExists(
+                atPath: repository.agentSkillsDirectoryURL.appendingPathComponent("swiftnest-testing-rules/SKILL.md").path
+            )
+        )
+    }
+
+    func testSyncCodexSkillEnvironmentDoesNotDeleteExistingBundlesWhenValidationFails() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("CodexValidationFailure-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("CodexValidationFailure.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "basic",
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let repository = SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        let generatedBundleURL = targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md")
+        let originalBundle = try String(contentsOf: generatedBundleURL, encoding: .utf8)
+        try """
+        # Custom Skill
+
+        Use this skill whenever the repository needs custom domain guidance.
+        """.write(
+            to: targetRoot.appendingPathComponent("Docs/AI_SKILLS/custom-skill.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.syncCodexSkillEnvironment(skills: ["ios-architecture", "custom-skill"], repository: repository)
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                SwiftNestLocalizer.text(.unknownAgentSkillResource, "custom-skill", SwiftNestSkillAgent.codex.rawValue)
+            )
+        }
+
+        XCTAssertEqual(try String(contentsOf: generatedBundleURL, encoding: .utf8), originalBundle)
+        XCTAssertTrue(fileManager.fileExists(atPath: repository.agentSkillStateDirectoryURL.appendingPathComponent("codex_manifest.json").path))
+    }
+
+    func testOnboardForceRecoversFromCorruptStateFile() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("CorruptForceRecovery-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("CorruptForceRecovery.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: ["--target": targetRoot.path],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let repository = SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        try "{ invalid json".write(
+            to: repository.stateFileURL,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertNoThrow(
+            try SwiftNestCLI.runOnboard(
+                parsed: ParsedArguments(
+                    values: ["--target": targetRoot.path],
+                    flags: ["--non-interactive", "--force"],
+                    positionals: []
+                ),
+                repository: SwiftNestRepository(rootURL: starterRoot)
+            )
+        )
+
+        let recoveredState = try repository.loadState()
+        XCTAssertEqual(recoveredState.profile, "intermediate")
+        XCTAssertEqual(
+            recoveredState.skills,
+            ["concurrency-rules", "ios-architecture", "networking-rules", "swiftui-rules", "testing-rules"]
+        )
+    }
+
+    func testOnboardOverrideRefreshPrintsGitignoreWarnings() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("OnboardWarningRefresh-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("OnboardWarningRefresh.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: ["--target": targetRoot.path],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+        try """
+        .swiftnest/
+        .agents/skills/
+        """.write(
+            to: targetRoot.appendingPathComponent(".gitignore"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let output = try captureStandardOutput {
+            try SwiftNestCLI.runOnboard(
+                parsed: ParsedArguments(
+                    values: [
+                        "--target": targetRoot.path,
+                        "--skill-agent": "codex",
+                    ],
+                    flags: ["--non-interactive"],
+                    positionals: []
+                ),
+                repository: SwiftNestRepository(rootURL: starterRoot)
+            )
+        }
+
+        XCTAssertTrue(output.contains(SwiftNestLocalizer.text(.warningGitignoreIgnoresAIHarness)))
+        XCTAssertTrue(output.contains(SwiftNestLocalizer.text(.warningGitignoreIgnoresAgentSkills)))
+    }
+
     func testInstallManagedFilesDoesNotDeleteLegacyNamedPaths() throws {
         let fileManager = FileManager.default
         let repositoryRoot = try makeRepositoryFixture()
@@ -722,6 +1471,43 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.profile, "advanced")
         XCTAssertEqual(state.skills, ["ios-architecture", "swiftui-rules"])
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".swiftnest/rendered_context.md").path))
+    }
+
+    func testRunUpgradePreservesCodexSkillAgentAndRefreshesAgentSkills() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot, assetRootURL: starterRoot)
+        let configURL = repositoryRoot.appendingPathComponent("config/project.yaml")
+        try String(contentsOf: repositoryRoot.appendingPathComponent("config/project.example.yaml"), encoding: .utf8)
+            .write(to: configURL, atomically: true, encoding: .utf8)
+
+        let initialState = SwiftNestState(
+            profile: "basic",
+            skills: ["ios-architecture"],
+            workflows: ["add-feature", "fix-bug", "refactor", "build"],
+            skillAgent: "codex",
+            configPath: "config/project.yaml",
+            contextPath: ".swiftnest/rendered_context.md"
+        )
+        try repository.saveState(initialState)
+
+        try SwiftNestCLI.runUpgrade(
+            parsed: ParsedArguments(values: ["--to": "advanced"], flags: [], positionals: []),
+            repository: repository
+        )
+
+        let upgradedState = try repository.loadState()
+        XCTAssertEqual(upgradedState.skillAgent, "codex")
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: repositoryRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+        XCTAssertEqual(
+            try String(contentsOf: repositoryRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "codex\n"
+        )
     }
 
     func testLocateManagedRepositorySkipsStarterCheckoutEvenWhenAssetRootDiffers() throws {
@@ -1372,6 +2158,7 @@ final class SwiftNestCLITests: XCTestCase {
 
         let directoryPaths = [
             "profiles",
+            "resources/agents/codex/skills",
             "templates/Docs/AI_SKILLS",
             "templates/Workflows",
             "tools/swiftnest-cli/Sources",
@@ -1408,6 +2195,11 @@ final class SwiftNestCLITests: XCTestCase {
             "templates/Docs/AI_SKILLS/networking-rules.md",
             "templates/Docs/AI_SKILLS/swiftui-rules.md",
             "templates/Docs/AI_SKILLS/testing-rules.md",
+            "resources/agents/codex/skills/concurrency-rules/SKILL.md",
+            "resources/agents/codex/skills/ios-architecture/SKILL.md",
+            "resources/agents/codex/skills/networking-rules/SKILL.md",
+            "resources/agents/codex/skills/swiftui-rules/SKILL.md",
+            "resources/agents/codex/skills/testing-rules/SKILL.md",
             "templates/Workflows/add-feature.md",
             "templates/Workflows/build.md",
             "templates/Workflows/fix-bug.md",
@@ -1498,6 +2290,56 @@ final class SwiftNestCLITests: XCTestCase {
 
             Apply this skill whenever logic changes are introduced.
             """,
+            "resources/agents/codex/skills/concurrency-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            <!-- Generated by SwiftNest for Codex from Docs/AI_SKILLS/{{SWIFTNEST_SOURCE_SKILL_FILE}}. Re-run swiftnest onboard, init, or upgrade after changing selected skills. -->
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/ios-architecture/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            <!-- Generated by SwiftNest for Codex from Docs/AI_SKILLS/{{SWIFTNEST_SOURCE_SKILL_FILE}}. Re-run swiftnest onboard, init, or upgrade after changing selected skills. -->
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/networking-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            <!-- Generated by SwiftNest for Codex from Docs/AI_SKILLS/{{SWIFTNEST_SOURCE_SKILL_FILE}}. Re-run swiftnest onboard, init, or upgrade after changing selected skills. -->
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/swiftui-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            <!-- Generated by SwiftNest for Codex from Docs/AI_SKILLS/{{SWIFTNEST_SOURCE_SKILL_FILE}}. Re-run swiftnest onboard, init, or upgrade after changing selected skills. -->
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/testing-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            <!-- Generated by SwiftNest for Codex from Docs/AI_SKILLS/{{SWIFTNEST_SOURCE_SKILL_FILE}}. Re-run swiftnest onboard, init, or upgrade after changing selected skills. -->
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
             "templates/Workflows/onboarding-review.md": """
             # Workflow: Onboarding Review
 
@@ -1519,6 +2361,105 @@ final class SwiftNestCLITests: XCTestCase {
         }
 
         return root
+    }
+
+    // MARK: - effectiveOnboardingDefaultSkills reconciliation
+
+    func testEffectiveOnboardingDefaultSkillsDropsAllStaleSkillsAndFallsBackToProfileDefaults() {
+        let state = SwiftNestState(
+            profile: "basic",
+            skills: ["removed-skill", "renamed-skill"],
+            workflows: ["add-feature"],
+            configPath: "config/project.yaml",
+            contextPath: ".swiftnest"
+        )
+        let parsed = ParsedArguments(values: [:], flags: [], positionals: [])
+        let result = SwiftNestCLI.effectiveOnboardingDefaultSkills(
+            parsed: parsed,
+            profileDefaultSkills: ["ios-architecture", "missing-skill"],
+            existingState: state,
+            preservableSkillNames: ["ios-architecture", "code-review"]
+        )
+        XCTAssertEqual(result, ["ios-architecture", "missing-skill"])
+    }
+
+    func testEffectiveOnboardingDefaultSkillsKeepsOnlyValidStoredSkills() {
+        let state = SwiftNestState(
+            profile: "basic",
+            skills: ["ios-architecture", "removed-skill"],
+            workflows: ["add-feature"],
+            configPath: "config/project.yaml",
+            contextPath: ".swiftnest"
+        )
+        let parsed = ParsedArguments(values: [:], flags: [], positionals: [])
+        let result = SwiftNestCLI.effectiveOnboardingDefaultSkills(
+            parsed: parsed,
+            profileDefaultSkills: ["swift-testing"],
+            existingState: state,
+            preservableSkillNames: ["ios-architecture", "swift-testing", "code-review"]
+        )
+        XCTAssertEqual(result, ["ios-architecture"])
+    }
+
+    func testEffectiveOnboardingDefaultSkillsPreservesExplicitlyEmptyStoredSkills() {
+        let state = SwiftNestState(
+            profile: "basic",
+            skills: [],
+            workflows: ["add-feature"],
+            configPath: "config/project.yaml",
+            contextPath: ".swiftnest"
+        )
+        let parsed = ParsedArguments(values: [:], flags: [], positionals: [])
+        let result = SwiftNestCLI.effectiveOnboardingDefaultSkills(
+            parsed: parsed,
+            profileDefaultSkills: ["ios-architecture"],
+            existingState: state,
+            preservableSkillNames: ["ios-architecture", "code-review"]
+        )
+        XCTAssertEqual(result, [])
+    }
+
+    func testEffectiveOnboardingDefaultSkillsWithExplicitSkillsReturnsProfileDefaults() {
+        let state = SwiftNestState(
+            profile: "basic",
+            skills: ["ios-architecture"],
+            workflows: ["add-feature"],
+            configPath: "config/project.yaml",
+            contextPath: ".swiftnest"
+        )
+        let parsed = ParsedArguments(values: ["--skills": "ios-architecture,code-review"], flags: [], positionals: [])
+        let result = SwiftNestCLI.effectiveOnboardingDefaultSkills(
+            parsed: parsed,
+            profileDefaultSkills: ["swift-testing"],
+            existingState: state,
+            preservableSkillNames: ["ios-architecture", "swift-testing", "code-review"]
+        )
+        XCTAssertEqual(result, ["swift-testing"])
+    }
+
+    private func captureStandardOutput(_ operation: () throws -> Void) throws -> String {
+        fflush(stdout)
+        let originalStdout = dup(STDOUT_FILENO)
+        XCTAssertNotEqual(originalStdout, -1)
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftnest-stdout-\(UUID().uuidString).log")
+        _ = FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+        let outputHandle = try FileHandle(forWritingTo: outputURL)
+        dup2(outputHandle.fileDescriptor, STDOUT_FILENO)
+
+        defer {
+            fflush(stdout)
+            dup2(originalStdout, STDOUT_FILENO)
+            close(originalStdout)
+            outputHandle.closeFile()
+        }
+
+        try operation()
+        fflush(stdout)
+        outputHandle.closeFile()
+        let data = try Data(contentsOf: outputURL)
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func repositoryRootURL() -> URL {
