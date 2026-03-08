@@ -32,7 +32,7 @@ You are working in the RunTrack iOS codebase.
 1. Read `Docs/AI_RULES.md`.
 2. Read `Docs/AI_WORKFLOWS.md`.
 3. Read the relevant files under `Docs/AI_SKILLS/`.
-4. When the task matches a workflow below, read the corresponding file under `.ai-harness/workflows/`.
+4. When the task matches a workflow below, read the corresponding file under `.swiftnest/workflows/`.
 
 ## Enabled Skills
 - `concurrency-rules`
@@ -42,10 +42,10 @@ You are working in the RunTrack iOS codebase.
 - `testing-rules`
 
 ## Workflow Entry Points
-- `add-feature`: Use for new features or visible behavior additions. Read `.ai-harness/workflows/add-feature.md`.
-- `fix-bug`: Use for bug fixes and regression repairs. Read `.ai-harness/workflows/fix-bug.md`.
-- `refactor`: Use for structure-only changes that preserve behavior. Read `.ai-harness/workflows/refactor.md`.
-- `build`: Use for build or test verification work. Read `.ai-harness/workflows/build.md`.
+- `add-feature`: Use for new features or visible behavior additions. Read `.swiftnest/workflows/add-feature.md`.
+- `fix-bug`: Use for bug fixes and regression repairs. Read `.swiftnest/workflows/fix-bug.md`.
+- `refactor`: Use for structure-only changes that preserve behavior. Read `.swiftnest/workflows/refactor.md`.
+- `build`: Use for build or test verification work. Read `.swiftnest/workflows/build.md`.
 
 ## Build and Test Commands
 - Build: xcodebuild -scheme RunTrack build
@@ -264,7 +264,7 @@ For ambiguous or high-risk tasks:
 
 This document defines standard execution workflows for AI agents.
 
-Scaffolded workflow entry files may also be generated under `.ai-harness/workflows/`. When present, treat those files as the task-specific execution entrypoints derived from this document.
+Scaffolded workflow entry files may also be generated under `.swiftnest/workflows/`. When present, treat those files as the task-specific execution entrypoints derived from this document.
 
 ## Workflow: Add Feature
 1. Read `Docs/AI_RULES.md` and relevant `Docs/AI_SKILLS/*` files.

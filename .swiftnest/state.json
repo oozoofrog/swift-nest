@@ -1,6 +1,7 @@
 {
+  "data_version" : 3,
   "config_path" : "config\/project.example.yaml",
-  "context_path" : ".ai-harness\/rendered_context.md",
+  "context_path" : ".swiftnest\/rendered_context.md",
   "profile" : "intermediate",
   "skills" : [
     "concurrency-rules",

@@ -29,7 +29,7 @@ Docs/
   AI_PROMPT_ENTRY.md
   AI_SKILLS/
     ...selected skills...
-.ai-harness/
+.swiftnest/
   state.json
   selected_profile.yaml
   selected_skills.txt
@@ -42,7 +42,7 @@ Docs/
     onboarding-review.md
 ```
 
-`Docs/` 와 `.ai-harness/` 는 하네스의 핵심 자산이므로 기본적으로 버전 관리에 포함하는 것을 권장합니다.
+`Docs/` 와 `.swiftnest/` 는 하네스의 핵심 자산이므로 기본적으로 버전 관리에 포함하는 것을 권장합니다.
 
 소스 저장소에는 SwiftNest 자체를 개발하기 위한 repo-local `./swiftnest` shell entrypoint 가 남아 있습니다. 하지만 관리 대상 앱 저장소에는 repo-local CLI wrapper 나 CLI 소스를 설치하지 않고, 전역 `swiftnest` 명령만 사용합니다.
 스타터 자체를 개발할 때 bootstrap build 가 겹치지 않도록 로컬 wrapper 는 빌드를 직렬화하고 기본적으로 `SWIFTNEST_BUILD_JOBS=1` 을 사용합니다. 더 높은 병렬도가 필요하면 `SWIFTNEST_BUILD_JOBS=2 ./swiftnest --help` 처럼 명시적으로 조정할 수 있습니다.
@@ -56,7 +56,7 @@ Docs/
 3. 전역 `swiftnest` 명령으로 대상 앱 저장소에 `onboard` 를 실행합니다.
 4. 대상 저장소 안의 `config/project.yaml`, `AGENTS.md`, `Docs/` 생성 결과를 검토합니다.
 5. 대상 저장소 루트에서 에이전트 작업을 시작합니다.
-6. 대상 저장소에서 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
+6. 대상 저장소에서 생성된 `Docs/` 와 `.swiftnest/` 를 커밋합니다.
 
 예시:
 
@@ -129,13 +129,13 @@ swiftnest workflow list
 swiftnest workflow scaffold permissions review
 ```
 
-`upgrade` 는 기존 `.ai-harness/state.json` 이 있어야 하므로 먼저 `init` 을 실행해야 합니다.
+`upgrade` 는 기존 `.swiftnest/state.json` 이 있어야 하므로 먼저 `init` 을 실행해야 합니다.
 
 ### 5. 온보딩 후 에이전트 검토로 넘기기
 
 다음 에이전트 작업은 저장소 루트에서 시작하고, 아래 파일부터 읽게 하세요.
 
-- `.ai-harness/workflows/onboarding-review.md`
+- `.swiftnest/workflows/onboarding-review.md`
 
 이 workflow는 다음 내용을 검토하도록 설계되어 있습니다.
 
@@ -156,7 +156,7 @@ swiftnest workflow scaffold permissions review
 3. `onboard` 로 새 저장소에 SwiftNest를 설치하고 설정 및 문서 생성을 한 번에 진행합니다.
 4. `config/project.yaml` 과 생성된 `AGENTS.md` 를 검토합니다.
 5. 필요하다면 가벼운 프로필과 작은 스킬 세트로 온보딩을 다시 실행합니다.
-6. 생성된 `Docs/` 와 `.ai-harness/` 를 커밋합니다.
+6. 생성된 `Docs/` 와 `.swiftnest/` 를 커밋합니다.
 
 예시:
 
@@ -177,7 +177,7 @@ swiftnest onboard --target "$PWD"
 1. 현재 프로젝트의 아키텍처, 프레임워크 사용, 권한 영역, 테스트 스타일을 먼저 확인합니다.
 2. 전역 `swiftnest` 명령이 설치되어 있는지 확인한 뒤 저장소 루트에 `onboard` 를 실행해서 SwiftNest 설치, 설정 기본값 생성, 문서 초기화를 함께 수행합니다.
 3. 실제 프로젝트 상태를 반영하도록 `config/project.yaml` 을 검토합니다.
-4. 첫 후속 검토는 `.ai-harness/workflows/onboarding-review.md` 부터 시작합니다.
+4. 첫 후속 검토는 `.swiftnest/workflows/onboarding-review.md` 부터 시작합니다.
 5. 현재 코드베이스에 맞는 프로필, 스킬, 워크플로를 필요에 따라 명시합니다.
 6. 생성된 문서가 현재 프로젝트 관습과 맞는지 검토하고 커밋합니다.
 
@@ -220,7 +220,7 @@ swiftnest upgrade --to advanced
 swiftnest render-context
 ```
 
-이 방식에서는 `.ai-harness/state.json` 이 이후 rerender 와 upgrade 를 이어주는 기준점 역할을 합니다.
+이 방식에서는 `.swiftnest/state.json` 이 이후 rerender 와 upgrade 를 이어주는 기준점 역할을 합니다.
 
 optional workflow는 기본 비활성입니다. `init` 를 다시 실행하면 workflow 세트는 기본 core workflow로 초기화됩니다.
 
@@ -303,29 +303,29 @@ https://github.com/oozoofrog/swift-nest
 2. 이 저장소의 README를 먼저 읽습니다.
 3. 전역 명령을 실행합니다:
    swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
-4. 첫 후속 검토는 `./.ai-harness/workflows/onboarding-review.md` 부터 시작합니다.
+4. 첫 후속 검토는 `./.swiftnest/workflows/onboarding-review.md` 부터 시작합니다.
 5. `config/project.yaml` 이 실제 프로젝트 상태를 반영하는지 검토합니다.
-6. 생성된 `AGENTS.md`, `Docs/`, `.ai-harness/` 결과를 검토합니다.
+6. 생성된 `AGENTS.md`, `Docs/`, `.swiftnest/` 결과를 검토합니다.
 7. 필요하면 명시적인 profile, skills, workflows 옵션과 함께 `swiftnest onboard` 또는 `swiftnest init` 을 다시 실행합니다.
-8. `Docs/` 와 `.ai-harness/` 는 저장소에 계속 커밋 상태로 유지합니다.
+8. `Docs/` 와 `.swiftnest/` 는 저장소에 계속 커밋 상태로 유지합니다.
 9. 선택한 profile, 선택한 skills, 생성된 파일, workflow 변경 사항, 가정을 요약합니다.
 
 제약사항:
 - 현재 저장소를 수정하는 목적이라면 스타터 체크아웃 안에서 `swiftnest onboard` 나 `swiftnest init` 을 실행하지 마세요.
 - 기존 Xcode 프로젝트 구조를 깨뜨리지 마세요.
-- `.ai-harness/` 를 무시하지 마세요.
+- `.swiftnest/` 를 무시하지 마세요.
 - 변경 범위는 작고 리뷰하기 쉽게 유지하세요.
 - `Docs/` 가 이미 존재한다면, 관련 없는 파일을 무조건 덮어쓰지 말고 주의해서 병합하세요.
-- `.ai-harness/state.json` 이 이미 존재한다면, 다시 렌더링하거나 업그레이드하기 전에 현재 하네스 상태로 취급하세요.
+- `.swiftnest/state.json` 이 이미 존재한다면, 다시 렌더링하거나 업그레이드하기 전에 현재 하네스 상태로 취급하세요.
 ```
 
 이 프롬프트의 목적은 스타터 저장소를 SwiftNest의 기준점으로 삼되, 실제 앱 저장소 갱신은 전역 `swiftnest` 명령으로 수행하게 만드는 것입니다.
 
 ## 상태 파일
 
-`.ai-harness/state.json` 은 현재 선택 상태를 저장하고, 이후 rerender 나 profile upgrade 의 기준이 됩니다.
+`.swiftnest/state.json` 은 현재 선택 상태를 저장하고, 이후 rerender 나 profile upgrade 의 기준이 됩니다.
 
-`.ai-harness/` 의 다른 파일:
+`.swiftnest/` 의 다른 파일:
 
 - `selected_profile.yaml`
 - `selected_skills.txt`

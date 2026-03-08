@@ -187,10 +187,10 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("config/project.yaml").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("AGENTS.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("Docs/AI_RULES.md").path))
-        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/state.json").path))
-        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path))
-        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/networking.md").path))
-        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/review.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/state.json").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/networking.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/review.md").path))
 
         let configText = try String(contentsOf: targetRoot.appendingPathComponent("config/project.yaml"), encoding: .utf8)
         XCTAssertTrue(configText.contains("project_name: SampleApp"))
@@ -198,7 +198,7 @@ final class SwiftNestCLITests: XCTestCase {
 
         let state = try JSONDecoder().decode(
             SwiftNestState.self,
-            from: Data(contentsOf: targetRoot.appendingPathComponent(".ai-harness/state.json"))
+            from: Data(contentsOf: targetRoot.appendingPathComponent(".swiftnest/state.json"))
         )
         XCTAssertEqual(state.dataVersion, SwiftNestCLI.currentDataVersion)
         XCTAssertEqual(state.profile, "intermediate")
@@ -271,7 +271,7 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review"])
         XCTAssertTrue(
             FileManager.default.fileExists(
-                atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
+                atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path
             )
         )
         XCTAssertTrue(
@@ -341,7 +341,7 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "review"])
         XCTAssertTrue(
             FileManager.default.fileExists(
-                atPath: repositoryRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
+                atPath: repositoryRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path
             )
         )
     }
@@ -375,7 +375,7 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build"])
         XCTAssertFalse(
             fileManager.fileExists(
-                atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
+                atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path
             )
         )
     }
@@ -412,12 +412,12 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "review"])
         XCTAssertFalse(
             fileManager.fileExists(
-                atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path
+                atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path
             )
         )
         XCTAssertTrue(
             fileManager.fileExists(
-                atPath: targetRoot.appendingPathComponent(".ai-harness/workflows/review.md").path
+                atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/review.md").path
             )
         )
     }
@@ -526,12 +526,12 @@ final class SwiftNestCLITests: XCTestCase {
           "skills": ["ios-architecture", "swiftui-rules"],
           "workflows": ["add-feature", "fix-bug", "refactor", "build", "onboarding-review"],
           "config_path": "config/project.yaml",
-          "context_path": ".ai-harness/rendered_context.md"
+          "context_path": ".swiftnest/rendered_context.md"
         }
         """
-        try fileManager.createDirectory(at: legacyRoot.appendingPathComponent(".ai-harness"), withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: legacyRoot.appendingPathComponent(".swiftnest"), withIntermediateDirectories: true)
         try legacyStateJSON.write(
-            to: legacyRoot.appendingPathComponent(".ai-harness/state.json"),
+            to: legacyRoot.appendingPathComponent(".swiftnest/state.json"),
             atomically: true,
             encoding: .utf8
         )
@@ -543,8 +543,8 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("swiftnest").path))
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("harness").path))
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent("tools/swiftnest-cli").path))
-        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".ai-harness/rendered_context.md").path))
-        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".ai-harness/workflows/onboarding-review.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".swiftnest/rendered_context.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path))
     }
 
     func testRunUpgradeMigratesLegacyStateBeforeApplyingTargetProfile() throws {
@@ -555,17 +555,17 @@ final class SwiftNestCLITests: XCTestCase {
         let configURL = legacyRoot.appendingPathComponent("config/project.yaml")
         try String(contentsOf: legacyRoot.appendingPathComponent("config/project.example.yaml"), encoding: .utf8)
             .write(to: configURL, atomically: true, encoding: .utf8)
-        try fileManager.createDirectory(at: legacyRoot.appendingPathComponent(".ai-harness"), withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: legacyRoot.appendingPathComponent(".swiftnest"), withIntermediateDirectories: true)
         try """
         {
           "profile": "basic",
           "skills": ["swiftui-rules"],
           "workflows": ["add-feature", "fix-bug", "refactor", "build"],
           "config_path": "config/project.yaml",
-          "context_path": ".ai-harness/rendered_context.md"
+          "context_path": ".swiftnest/rendered_context.md"
         }
         """.write(
-            to: legacyRoot.appendingPathComponent(".ai-harness/state.json"),
+            to: legacyRoot.appendingPathComponent(".swiftnest/state.json"),
             atomically: true,
             encoding: .utf8
         )
@@ -579,7 +579,7 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.dataVersion, SwiftNestCLI.currentDataVersion)
         XCTAssertEqual(state.profile, "advanced")
         XCTAssertEqual(state.skills, ["ios-architecture", "swiftui-rules"])
-        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".ai-harness/rendered_context.md").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".swiftnest/rendered_context.md").path))
     }
 
     func testLocateManagedRepositorySkipsStarterCheckoutEvenWhenAssetRootDiffers() throws {
@@ -699,7 +699,7 @@ final class SwiftNestCLITests: XCTestCase {
           "skills": ["ios-architecture"],
           "workflows": ["add-feature", "fix-bug", "refactor", "build"],
           "config_path": "config/project.yaml",
-          "context_path": ".ai-harness/rendered_context.md"
+          "context_path": ".swiftnest/rendered_context.md"
         }
         """.write(
             to: repository.stateFileURL,

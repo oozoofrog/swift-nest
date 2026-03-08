@@ -91,7 +91,7 @@ struct SwiftNestRepository {
     var templatesURL: URL { assetRootURL.appendingPathComponent("templates", isDirectory: true) }
     var profilesURL: URL { assetRootURL.appendingPathComponent("profiles", isDirectory: true) }
     var configURL: URL { rootURL.appendingPathComponent("config", isDirectory: true) }
-    var stateDirectoryURL: URL { rootURL.appendingPathComponent(".ai-harness", isDirectory: true) }
+    var stateDirectoryURL: URL { rootURL.appendingPathComponent(".swiftnest", isDirectory: true) }
     var stateFileURL: URL { stateDirectoryURL.appendingPathComponent("state.json") }
     var isStarterCheckout: Bool {
         fileManager.fileExists(atPath: rootURL.appendingPathComponent("packaging/homebrew/swiftnest.rb.template").path)
@@ -254,7 +254,8 @@ struct SwiftNestRepository {
 enum SwiftNestCLI {
     // data version 1: repo-local CLI bootstrap installation
     // data version 2: global runtime with asset-root / managed-repo separation
-    static let currentDataVersion = 2
+    // data version 3: .swiftnest state directory rename
+    static let currentDataVersion = 3
     static let profileGuidance: [String: String] = [
         "basic": "- Keep output concise and implementation-focused.\n- Prefer minimal abstractions.\n- Do not add extra process unless the task clearly benefits.",
         "intermediate": "- Include explicit self-review.\n- Add regression tests for bug fixes when practical.\n- Call out state transition risks when async or permission logic is involved.",
@@ -1122,7 +1123,7 @@ enum SwiftNestCLI {
         if let gitignoreText = try? String(contentsOf: gitignoreURL, encoding: .utf8) {
             for rawLine in gitignoreText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
                 let line = rawLine.trimmingCharacters(in: .whitespaces)
-                if line == ".ai-harness" || line == ".ai-harness/" {
+                if line == ".swiftnest" || line == ".swiftnest/" {
                     print(SwiftNestLocalizer.text(.warningGitignoreIgnoresAIHarness))
                     break
                 }
@@ -1132,7 +1133,7 @@ enum SwiftNestCLI {
         if fileManager.fileExists(atPath: targetURL.appendingPathComponent("Docs").path) {
             print(SwiftNestLocalizer.text(.warningDocsAlreadyExists))
         }
-        if fileManager.fileExists(atPath: targetURL.appendingPathComponent(".ai-harness").path) {
+        if fileManager.fileExists(atPath: targetURL.appendingPathComponent(".swiftnest").path) {
             print(SwiftNestLocalizer.text(.warningAIHarnessAlreadyExists))
         }
     }

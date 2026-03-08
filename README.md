@@ -29,7 +29,7 @@ Docs/
   AI_PROMPT_ENTRY.md
   AI_SKILLS/
     ...selected skills...
-.ai-harness/
+.swiftnest/
   state.json
   selected_profile.yaml
   selected_skills.txt
@@ -42,7 +42,7 @@ Docs/
     onboarding-review.md
 ```
 
-`Docs/` and `.ai-harness/` are first-class harness assets. Track them in version control by default.
+`Docs/` and `.swiftnest/` are first-class harness assets. Track them in version control by default.
 
 The source repository keeps a repo-local `./swiftnest` shell entrypoint for developing SwiftNest itself. Managed target repositories do not receive a repo-local CLI wrapper or CLI sources; they use the globally installed `swiftnest` command instead.
 To avoid overlapping bootstrap builds while developing the starter itself, the local wrapper now serializes builds and defaults to `SWIFTNEST_BUILD_JOBS=1`. Override it explicitly when you want more parallelism, for example `SWIFTNEST_BUILD_JOBS=2 ./swiftnest --help`.
@@ -56,7 +56,7 @@ If an agent only receives this GitHub link, the expected installation flow is:
 3. Run the global `swiftnest` command with `onboard` against the target app repository.
 4. Review the generated `config/project.yaml`, `AGENTS.md`, and `Docs/` output in the target repository.
 5. Start agent work from the target repository root.
-6. Commit the generated `Docs/` and `.ai-harness/` files in the target repository.
+6. Commit the generated `Docs/` and `.swiftnest/` files in the target repository.
 
 Example:
 
@@ -129,13 +129,13 @@ swiftnest workflow list
 swiftnest workflow scaffold permissions review
 ```
 
-`upgrade` requires an existing `.ai-harness/state.json`, so run `init` first.
+`upgrade` requires an existing `.swiftnest/state.json`, so run `init` first.
 
 ### 5. After onboarding, hand off to agent review
 
 Start the next agent task from the repository root and point it at:
 
-- `.ai-harness/workflows/onboarding-review.md`
+- `.swiftnest/workflows/onboarding-review.md`
 
 That workflow is intended to verify:
 
@@ -156,7 +156,7 @@ Recommended flow:
 3. Run `onboard` into the new repository so SwiftNest installs, creates config, and initializes docs in one flow.
 4. Review `config/project.yaml` and the generated `AGENTS.md`.
 5. Start with a light profile and a small skill set if you need to rerun onboarding with explicit options.
-6. Commit the generated `Docs/` and `.ai-harness/`.
+6. Commit the generated `Docs/` and `.swiftnest/`.
 
 Example:
 
@@ -177,7 +177,7 @@ Recommended flow:
 1. Inspect the existing architecture, frameworks, permission surfaces, testing style, and naming conventions.
 2. Make sure the global `swiftnest` command is installed and then run `onboard` into the repository root so SwiftNest installs, infers config defaults, and initializes docs together.
 3. Review `config/project.yaml` so it reflects the real project, not an aspiration.
-4. Start the first follow-up review from `.ai-harness/workflows/onboarding-review.md`.
+4. Start the first follow-up review from `.swiftnest/workflows/onboarding-review.md`.
 5. Choose the profile, skills, and workflows that match the current codebase when rerunning onboarding or init with explicit options.
 6. Review the generated docs against the current project and commit them.
 
@@ -220,7 +220,7 @@ swiftnest upgrade --to advanced
 swiftnest render-context
 ```
 
-In this model, `.ai-harness/state.json` is the continuity anchor for future rerenders and upgrades.
+In this model, `.swiftnest/state.json` is the continuity anchor for future rerenders and upgrades.
 
 Optional workflows stay opt-in. Re-running `init` resets the workflow set back to the default core workflows.
 
@@ -303,29 +303,29 @@ Follow this process:
 2. Read the README from this repository first.
 3. Run the global command:
    swiftnest onboard --target <CURRENT_REPOSITORY_ROOT>
-4. Start the first follow-up review from ./.ai-harness/workflows/onboarding-review.md.
+4. Start the first follow-up review from ./.swiftnest/workflows/onboarding-review.md.
 5. Review config/project.yaml so it reflects the actual project state.
-6. Review the generated AGENTS.md, Docs/, and .ai-harness/ output.
+6. Review the generated AGENTS.md, Docs/, and .swiftnest/ output.
 7. If needed, rerun swiftnest onboard or swiftnest init with explicit profile, skills, or workflows.
-8. Keep Docs/ and .ai-harness/ checked into the repository.
+8. Keep Docs/ and .swiftnest/ checked into the repository.
 9. Summarize the selected profile, selected skills, generated files, any workflow changes, and any assumptions.
 
 Constraints:
 - Do not run swiftnest onboard or swiftnest init from the starter checkout when the goal is to modify the current repository.
 - Do not break the existing Xcode project structure.
-- Do not ignore .ai-harness/.
+- Do not ignore .swiftnest/.
 - Prefer minimal, reviewable changes.
 - If Docs/ already exists, merge carefully instead of blindly overwriting unrelated files.
-- If .ai-harness/state.json already exists, treat it as the current harness state before rerendering or upgrading.
+- If .swiftnest/state.json already exists, treat it as the current harness state before rerendering or upgrading.
 ```
 
 The point of this prompt is to let an agent use this starter repository as the reference for SwiftNest while the globally installed `swiftnest` command updates the actual app repository.
 
 ## State Files
 
-`.ai-harness/state.json` stores the current selected state and drives later rerendering or profile upgrades.
+`.swiftnest/state.json` stores the current selected state and drives later rerendering or profile upgrades.
 
-Other files in `.ai-harness/`:
+Other files in `.swiftnest/`:
 
 - `selected_profile.yaml`
 - `selected_skills.txt`

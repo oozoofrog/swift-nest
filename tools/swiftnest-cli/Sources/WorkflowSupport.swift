@@ -128,7 +128,7 @@ extension SwiftNestCLI {
             guard let definition = workflowDefinitions[name] else {
                 return nil
             }
-            return "- `\(name)`: \(definition.description) Read `.ai-harness/workflows/\(name).md`."
+            return "- `\(name)`: \(definition.description) Read `.swiftnest/workflows/\(name).md`."
         }.joined(separator: "\n")
 
         let buildCommand = HarnessDocumentLoader.string(config, key: "build_command", default: "")
