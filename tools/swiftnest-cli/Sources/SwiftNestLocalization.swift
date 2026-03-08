@@ -62,6 +62,7 @@ enum SwiftNestMessageKey: Hashable {
     case onboardingCurrentProfile
     case onboardingCurrentSkills
     case onboardingCurrentWorkflows
+    case onboardingCurrentSkillAgent
     case onboardingUseForceToRerun
     case onboardingCompleted
     case onboardingConfigReady
@@ -74,7 +75,8 @@ enum SwiftNestMessageKey: Hashable {
     case onboardingNextStepReviewAgents
     case onboardingNextStepReviewWorkflow
     case onboardingNextStepReviewGoals
-    case onboardingNextStepCodexSkills
+    case onboardingNextStepCodexSkillsNeeded
+    case onboardingNextStepCodexSkillsInstalled
     case onboardingNextStepAgentRoot
     case onboardingConfigPromptHeader
     case onboardingPromptProjectName
@@ -133,11 +135,17 @@ enum SwiftNestMessageKey: Hashable {
     case unknownWorkflowName
     case unknownOption
     case unknownSkillTemplate
+    case unknownAgentSkillResource
     case profilesHeader
     case chooseProfileNumberPrompt
     case profileChoiceOutOfRange
     case availableSkillsHeader
+    case availableSkillAgentsHeader
     case availableWorkflowsHeader
+    case skillAgentNoneLabel
+    case skillAgentCodexLabel
+    case unknownSkillAgent
+    case selectSkillAgentPrompt
     case selectSkillsPrompt
     case selectWorkflowsPrompt
     case invalidSelection
@@ -149,6 +157,7 @@ enum SwiftNestMessageKey: Hashable {
     case managedPathMissingFromStarter
     case managedPathEscapedRepositoryRoot
     case warningGitignoreIgnoresAIHarness
+    case warningGitignoreIgnoresAgentSkills
     case warningDocsAlreadyExists
     case warningAIHarnessAlreadyExists
     case usageTopLevel
@@ -226,7 +235,8 @@ enum SwiftNestLocalizer {
             .onboardingCurrentProfile: "Profile: %@",
             .onboardingCurrentSkills: "Skills: %@",
             .onboardingCurrentWorkflows: "Workflows: %@",
-            .onboardingUseForceToRerun: "Re-run with --force to regenerate docs and state.",
+            .onboardingCurrentSkillAgent: "Skill agent: %@",
+            .onboardingUseForceToRerun: "Re-run with --force to regenerate docs, state, and local agent skill bundles.",
             .onboardingCompleted: "SwiftNest onboarding completed for %@.",
             .onboardingConfigReady: "Config file: %@",
             .onboardingGeneratedFilesHeader: "Generated files:",
@@ -238,7 +248,8 @@ enum SwiftNestLocalizer {
             .onboardingNextStepReviewAgents: "- Review AGENTS.md to confirm the generated operating instructions.",
             .onboardingNextStepReviewWorkflow: "- Ask your AI agent to start with .swiftnest/workflows/onboarding-review.md.",
             .onboardingNextStepReviewGoals: "- That review should verify config/project.yaml, selected skills, and workflows against the real repository.",
-            .onboardingNextStepCodexSkills: "- If you use Codex, complete any additional Codex skill onboarding now. SwiftNest renders Docs/AI_SKILLS/* and .swiftnest/selected_skills.txt, but does not auto-register those skills in Codex yet.",
+            .onboardingNextStepCodexSkillsNeeded: "- If you use Codex, rerun onboarding with --skill-agent codex to install the repo-local Codex skill environment under .agents/skills.",
+            .onboardingNextStepCodexSkillsInstalled: "- Codex repo-local skills were installed at %@. Re-run onboard, init, or upgrade to refresh them when selected skills change.",
             .onboardingNextStepAgentRoot: "- Start your AI task from %@ so the global swiftnest command and generated docs are available.",
             .onboardingConfigPromptHeader: "Create config/project.yaml for this repository. Press Enter to accept inferred defaults.",
             .onboardingPromptProjectName: "Project name",
@@ -297,11 +308,17 @@ enum SwiftNestLocalizer {
             .unknownWorkflowName: "Unknown workflow: %@",
             .unknownOption: "Unknown option: %@",
             .unknownSkillTemplate: "Unknown skill template: %@",
+            .unknownAgentSkillResource: "Unknown %@ skill resource for agent %@.",
             .profilesHeader: "Profiles:",
             .chooseProfileNumberPrompt: "Choose profile number (default %@): ",
             .profileChoiceOutOfRange: "Profile choice out of range",
             .availableSkillsHeader: "Available skills:",
+            .availableSkillAgentsHeader: "Available skill agent environments:",
             .availableWorkflowsHeader: "Available workflows:",
+            .skillAgentNoneLabel: "none — do not install a local agent skill environment",
+            .skillAgentCodexLabel: "codex — install repo-local Codex skills under .agents/skills",
+            .unknownSkillAgent: "Unknown skill agent: %@. Supported values: %@.",
+            .selectSkillAgentPrompt: "Choose skill agent number (default %@): ",
             .selectSkillsPrompt: "Select skills by comma-separated numbers (Enter for defaults): ",
             .selectWorkflowsPrompt: "Select optional workflows by comma-separated numbers (Enter for defaults): ",
             .invalidSelection: "Invalid selection: %@",
@@ -313,6 +330,7 @@ enum SwiftNestLocalizer {
             .managedPathMissingFromStarter: "Managed path is missing from starter: %@",
             .managedPathEscapedRepositoryRoot: "Managed path escaped repository root: %@",
             .warningGitignoreIgnoresAIHarness: "warning: .gitignore ignores .swiftnest/. Remove that rule before committing generated state.",
+            .warningGitignoreIgnoresAgentSkills: "warning: .gitignore ignores .agents/ or .agents/skills/. Remove that rule before committing generated agent skills.",
             .warningDocsAlreadyExists: "warning: Docs/ already exists. Review generated files after init before committing.",
             .warningAIHarnessAlreadyExists: "warning: .swiftnest/ already exists. Review current state before rerendering or upgrading.",
             .usageTopLevel: """
@@ -331,9 +349,9 @@ enum SwiftNestLocalizer {
               list-skills    List available skills
               list-profiles  List available profiles
             """,
-            .usageOnboard: "usage: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive] [--force]",
+            .usageOnboard: "usage: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--skill-agent <none|codex>] [--workflows <csv>] [--non-interactive] [--force]",
             .usageInstall: "usage: swiftnest [--lang <en|ko>] install [--target <path>] [--force] [--dry-run]",
-            .usageInit: "usage: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive]",
+            .usageInit: "usage: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--skill-agent <none|codex>] [--workflows <csv>] [--non-interactive]",
             .usageUpgrade: "usage: swiftnest [--lang <en|ko>] upgrade --to <profile>",
             .usageWorkflow: """
             usage: swiftnest [--lang <en|ko>] workflow <subcommand> [options]
@@ -379,7 +397,8 @@ enum SwiftNestLocalizer {
             .onboardingCurrentProfile: "프로필: %@",
             .onboardingCurrentSkills: "스킬: %@",
             .onboardingCurrentWorkflows: "워크플로: %@",
-            .onboardingUseForceToRerun: "--force와 함께 다시 실행하면 문서와 상태를 다시 생성합니다.",
+            .onboardingCurrentSkillAgent: "스킬 에이전트: %@",
+            .onboardingUseForceToRerun: "--force와 함께 다시 실행하면 문서, 상태, 로컬 agent skill bundle을 다시 생성합니다.",
             .onboardingCompleted: "%@에 대한 SwiftNest 온보딩을 완료했습니다.",
             .onboardingConfigReady: "설정 파일: %@",
             .onboardingGeneratedFilesHeader: "생성된 파일:",
@@ -391,7 +410,8 @@ enum SwiftNestLocalizer {
             .onboardingNextStepReviewAgents: "- 생성된 운영 지침이 맞는지 AGENTS.md를 검토하세요.",
             .onboardingNextStepReviewWorkflow: "- AI 에이전트에게 .swiftnest/workflows/onboarding-review.md부터 시작하라고 요청하세요.",
             .onboardingNextStepReviewGoals: "- 그 검토에서는 config/project.yaml, 선택한 스킬, 워크플로가 실제 저장소와 맞는지 확인해야 합니다.",
-            .onboardingNextStepCodexSkills: "- Codex를 사용한다면 지금 추가 Codex 스킬 온보딩을 진행하세요. SwiftNest는 Docs/AI_SKILLS/* 와 .swiftnest/selected_skills.txt 를 생성하지만, 해당 스킬을 Codex에 자동 등록하지는 않습니다.",
+            .onboardingNextStepCodexSkillsNeeded: "- Codex를 사용한다면 --skill-agent codex 와 함께 온보딩을 다시 실행해 .agents/skills 아래에 repo-local Codex 스킬 환경을 설치하세요.",
+            .onboardingNextStepCodexSkillsInstalled: "- Codex repo-local 스킬이 %@ 에 설치되었습니다. 선택한 스킬이 바뀌면 onboard, init, upgrade를 다시 실행해 갱신하세요.",
             .onboardingNextStepAgentRoot: "- %@ 루트에서 AI 작업을 시작하면 전역 swiftnest 명령과 생성된 문서를 바로 사용할 수 있습니다.",
             .onboardingConfigPromptHeader: "이 저장소용 config/project.yaml을 만듭니다. Enter를 누르면 추론한 기본값을 사용합니다.",
             .onboardingPromptProjectName: "프로젝트 이름",
@@ -450,11 +470,17 @@ enum SwiftNestLocalizer {
             .unknownWorkflowName: "알 수 없는 workflow입니다: %@",
             .unknownOption: "알 수 없는 옵션입니다: %@",
             .unknownSkillTemplate: "알 수 없는 스킬 템플릿입니다: %@",
+            .unknownAgentSkillResource: "%@ 스킬에 대한 %@ 에이전트 리소스를 찾을 수 없습니다.",
             .profilesHeader: "프로필:",
             .chooseProfileNumberPrompt: "프로필 번호를 선택하세요 (기본값 %@): ",
             .profileChoiceOutOfRange: "프로필 선택이 범위를 벗어났습니다",
             .availableSkillsHeader: "사용 가능한 스킬:",
+            .availableSkillAgentsHeader: "사용 가능한 스킬 에이전트 환경:",
             .availableWorkflowsHeader: "사용 가능한 워크플로:",
+            .skillAgentNoneLabel: "none — 로컬 에이전트 스킬 환경을 설치하지 않음",
+            .skillAgentCodexLabel: "codex — .agents/skills 아래에 repo-local Codex 스킬 설치",
+            .unknownSkillAgent: "알 수 없는 스킬 에이전트입니다: %@. 지원 값: %@.",
+            .selectSkillAgentPrompt: "스킬 에이전트 번호를 선택하세요 (기본값 %@): ",
             .selectSkillsPrompt: "쉼표로 구분된 번호로 스킬을 선택하세요 (Enter 입력 시 기본값 사용): ",
             .selectWorkflowsPrompt: "쉼표로 구분된 번호로 워크플로를 선택하세요 (Enter 입력 시 기본값 사용): ",
             .invalidSelection: "잘못된 선택입니다: %@",
@@ -466,6 +492,7 @@ enum SwiftNestLocalizer {
             .managedPathMissingFromStarter: "스타터 저장소에 관리 대상 경로가 없습니다: %@",
             .managedPathEscapedRepositoryRoot: "관리 대상 경로가 저장소 루트를 벗어났습니다: %@",
             .warningGitignoreIgnoresAIHarness: "경고: .gitignore가 .swiftnest/를 무시하고 있습니다. 생성된 상태를 커밋하기 전에 해당 규칙을 제거하세요.",
+            .warningGitignoreIgnoresAgentSkills: "경고: .gitignore가 .agents/ 또는 .agents/skills/를 무시하고 있습니다. 생성된 agent skill을 커밋하기 전에 해당 규칙을 제거하세요.",
             .warningDocsAlreadyExists: "경고: Docs/가 이미 존재합니다. 커밋 전에 init으로 생성된 파일을 검토하세요.",
             .warningAIHarnessAlreadyExists: "경고: .swiftnest/가 이미 존재합니다. 다시 렌더링하거나 업그레이드하기 전에 현재 상태를 검토하세요.",
             .usageTopLevel: """
@@ -484,9 +511,9 @@ enum SwiftNestLocalizer {
               list-skills    사용 가능한 스킬 나열
               list-profiles  사용 가능한 프로필 나열
             """,
-            .usageOnboard: "사용법: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive] [--force]",
+            .usageOnboard: "사용법: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--skill-agent <none|codex>] [--workflows <csv>] [--non-interactive] [--force]",
             .usageInstall: "사용법: swiftnest [--lang <en|ko>] install [--target <path>] [--force] [--dry-run]",
-            .usageInit: "사용법: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive]",
+            .usageInit: "사용법: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--skill-agent <none|codex>] [--workflows <csv>] [--non-interactive]",
             .usageUpgrade: "사용법: swiftnest [--lang <en|ko>] upgrade --to <profile>",
             .usageWorkflow: """
             사용법: swiftnest [--lang <en|ko>] workflow <subcommand> [options]

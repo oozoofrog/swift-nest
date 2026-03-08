@@ -43,6 +43,7 @@ You are working in the SwiftNest starter and CLI codebase.
 - Keep starter assets, CLI behavior, README guidance, and packaging changes aligned.
 - If user-visible CLI output changes, update or add tests for English/Korean behavior when applicable.
 - When changing Homebrew-visible behavior, update `packaging/homebrew/swiftnest.rb.template` and the related documentation in the same change.
+- If SwiftNest generates repo-local agent bundles under `.agents/skills/`, refresh them through SwiftNest commands instead of editing them by hand.
 - Preserve the bootstrap model: global Homebrew `swiftnest` installs into repos, then repo-local `./swiftnest` owns follow-up commands.
 
 ## Homebrew Release Follow-up

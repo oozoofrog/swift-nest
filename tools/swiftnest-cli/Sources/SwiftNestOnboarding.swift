@@ -142,6 +142,7 @@ extension SwiftNestCLI {
             repository: targetRepository,
             defaultWorkflows: onboardingDefaultWorkflows(repository: targetRepository)
         )
+        let skillAgent = try resolveSkillAgentSelection(parsed: parsed, interactive: interactive)
 
         let result = try initializeHarness(
             config: config,
@@ -149,6 +150,7 @@ extension SwiftNestCLI {
             profileName: profileName,
             skills: skills,
             workflows: workflows,
+            skillAgent: skillAgent,
             repository: targetRepository
         )
 
@@ -161,6 +163,7 @@ extension SwiftNestCLI {
         profileName: String,
         skills: [String],
         workflows: [String],
+        skillAgent: SwiftNestSkillAgent?,
         repository: SwiftNestRepository
     ) throws -> SwiftNestState {
         let context = mergedContext(
@@ -189,13 +192,21 @@ extension SwiftNestCLI {
             repository: repository
         )
 
-        try writeSelectedConfigurationFiles(profileName: profileName, skills: skills, repository: repository)
+        let normalizedSkillAgent = normalizedSkillAgentRawValue(skillAgent?.rawValue)
+        try syncAgentSkillEnvironment(skillAgent: normalizedSkillAgent, skills: skills, repository: repository)
+        try writeSelectedConfigurationFiles(
+            profileName: profileName,
+            skills: skills,
+            skillAgent: normalizedSkillAgent,
+            repository: repository
+        )
 
         let state = SwiftNestState(
             dataVersion: currentDataVersion,
             profile: profileName,
             skills: skills,
             workflows: renderedWorkflows,
+            skillAgent: normalizedSkillAgent,
             configPath: repository.serializeStatePath(configURL),
             contextPath: repository.serializeStatePath(contextURL)
         )
@@ -523,6 +534,32 @@ extension SwiftNestCLI {
         return defaultSkills.sorted()
     }
 
+    static func resolveSkillAgentSelection(
+        parsed: ParsedArguments,
+        interactive: Bool
+    ) throws -> SwiftNestSkillAgent? {
+        if let rawSkillAgent = parsed.value(for: "--skill-agent") {
+            return try validateSkillAgentSelection(rawSkillAgent)
+        }
+        if interactive {
+            return try chooseSkillAgentInteractively()
+        }
+        return nil
+    }
+
+    static func validateSkillAgentSelection(_ rawValue: String) throws -> SwiftNestSkillAgent? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed.lowercased() == SwiftNestSkillAgent.noneOption {
+            return nil
+        }
+        guard let skillAgent = SwiftNestSkillAgent.normalized(from: trimmed) else {
+            throw SwiftNestError(
+                SwiftNestLocalizer.text(.unknownSkillAgent, trimmed, SwiftNestSkillAgent.supportedCodesSummary)
+            )
+        }
+        return skillAgent
+    }
+
     static func resolveWorkflowSelection(
         parsed: ParsedArguments,
         interactive: Bool,
@@ -586,12 +623,33 @@ extension SwiftNestCLI {
         return definitions.map(\.name).filter { merged.contains($0) }
     }
 
+    static func chooseSkillAgentInteractively() throws -> SwiftNestSkillAgent? {
+        let options: [(label: String, value: SwiftNestSkillAgent?)] = [
+            (SwiftNestLocalizer.text(.skillAgentNoneLabel), nil),
+            (SwiftNestLocalizer.text(.skillAgentCodexLabel), .codex),
+        ]
+
+        print(SwiftNestLocalizer.text(.availableSkillAgentsHeader))
+        for (index, option) in options.enumerated() {
+            print("  \(index + 1). \(option.label)")
+        }
+
+        print(SwiftNestLocalizer.text(.selectSkillAgentPrompt, "1"), terminator: "")
+        let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let chosen = raw.isEmpty ? "1" : raw
+        guard let number = Int(chosen), options.indices.contains(number - 1) else {
+            throw SwiftNestError(SwiftNestLocalizer.text(.selectionOutOfRange, chosen))
+        }
+        return options[number - 1].value
+    }
+
     static func printOnboardingAlreadyCompletedSummary(state: SwiftNestState, repository: SwiftNestRepository) {
         let workflows = normalizedWorkflowNames(state.workflows)
         print(SwiftNestLocalizer.text(.onboardingAlreadyCompleted, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.onboardingCurrentProfile, state.profile))
         print(SwiftNestLocalizer.text(.onboardingCurrentSkills, state.skills.joined(separator: ", ")))
         print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, workflows.joined(separator: ", ")))
+        print(SwiftNestLocalizer.text(.onboardingCurrentSkillAgent, selectedSkillAgentLabel(for: state.skillAgent)))
         printOnboardingReviewFollowUpIfNeeded(workflows: workflows)
         print(SwiftNestLocalizer.text(.onboardingUseForceToRerun))
     }
@@ -607,13 +665,18 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingCurrentProfile, result.profile))
         print(SwiftNestLocalizer.text(.onboardingCurrentSkills, result.skills.joined(separator: ", ")))
         print(SwiftNestLocalizer.text(.onboardingCurrentWorkflows, normalizedWorkflowNames(result.workflows).joined(separator: ", ")))
+        print(SwiftNestLocalizer.text(.onboardingCurrentSkillAgent, selectedSkillAgentLabel(for: result.skillAgent)))
         print(SwiftNestLocalizer.text(.onboardingGeneratedFilesHeader))
         print("  - AGENTS.md")
         print("  - Docs/AI_RULES.md")
         print("  - Docs/AI_WORKFLOWS.md")
         print("  - Docs/AI_SKILLS/*")
         print("  - .swiftnest/state.json")
+        print("  - .swiftnest/selected_skill_agent.txt")
         print("  - .swiftnest/rendered_context.md")
+        if normalizedSkillAgentRawValue(result.skillAgent) == SwiftNestSkillAgent.codex.rawValue {
+            print("  - .agents/skills/*")
+        }
         if result.workflows.contains("onboarding-review") {
             print("  - .swiftnest/workflows/onboarding-review.md")
         }
@@ -624,7 +687,11 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewConfig, configURL.path))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewAgents))
         printOnboardingReviewFollowUpIfNeeded(workflows: result.workflows)
-        print(SwiftNestLocalizer.text(.onboardingNextStepCodexSkills))
+        if normalizedSkillAgentRawValue(result.skillAgent) == SwiftNestSkillAgent.codex.rawValue {
+            print(SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsInstalled, repository.agentSkillsDirectoryURL.path))
+        } else {
+            print(SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded))
+        }
         print(SwiftNestLocalizer.text(.onboardingNextStepAgentRoot, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
     }

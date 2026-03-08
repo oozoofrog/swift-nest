@@ -162,22 +162,33 @@ final class SwiftNestCLITests: XCTestCase {
     func testLocalizedUsageAndPromptStringsAreAvailableInKorean() {
         XCTAssertTrue(SwiftNestLocalizer.text(.usageTopLevel, language: .ko).contains("사용법"))
         XCTAssertTrue(SwiftNestLocalizer.text(.usageTopLevel, language: .ko).contains("onboard"))
+        XCTAssertTrue(SwiftNestLocalizer.text(.usageOnboard, language: .ko).contains("--skill-agent <none|codex>"))
         XCTAssertTrue(SwiftNestLocalizer.text(.chooseProfileNumberPrompt, language: .ko, "2").contains("프로필 번호"))
     }
 
     func testCodexSkillOnboardingFollowUpStringsAreLocalized() {
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .en).contains("Codex skill onboarding")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded, language: .en).contains("--skill-agent codex")
         )
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .en).contains(".swiftnest/selected_skills.txt")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsInstalled, language: .en, ".agents/skills").contains(".agents/skills")
         )
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .ko).contains("추가 Codex 스킬 온보딩")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded, language: .ko).contains("--skill-agent codex")
         )
         XCTAssertTrue(
-            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .ko).contains("자동 등록")
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsInstalled, language: .ko, ".agents/skills").contains(".agents/skills")
         )
+    }
+
+    func testResolveSkillAgentSelectionRejectsUnknownValue() {
+        XCTAssertThrowsError(try SwiftNestCLI.validateSkillAgentSelection("claude")) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(swiftNestError.message, "Unknown skill agent: claude. Supported values: none, codex.")
+        }
     }
 
     func testWorkflowRuntimeDescriptionIsLocalized() throws {
@@ -330,9 +341,11 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("AGENTS.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent("Docs/AI_RULES.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/state.json").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/onboarding-review.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/networking.md").path))
         XCTAssertTrue(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".swiftnest/workflows/review.md").path))
+        XCTAssertFalse(fileManager.fileExists(atPath: targetRoot.appendingPathComponent(".agents/skills").path))
 
         let configText = try String(contentsOf: targetRoot.appendingPathComponent("config/project.yaml"), encoding: .utf8)
         XCTAssertTrue(configText.contains("project_name: SampleApp"))
@@ -346,6 +359,44 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.profile, "intermediate")
         XCTAssertEqual(state.skills, ["concurrency-rules", "ios-architecture", "networking-rules", "swiftui-rules", "testing-rules"])
         XCTAssertEqual(state.workflows, ["add-feature", "fix-bug", "refactor", "build", "onboarding-review", "networking", "review"])
+        XCTAssertNil(state.skillAgent)
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "none\n"
+        )
+    }
+
+    func testOnboardWithCodexSkillAgentCreatesRepoLocalAgentSkills() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("CodexSkillTarget-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+
+        let parsed = ParsedArguments(
+            values: [
+                "--target": targetRoot.path,
+                "--skill-agent": "codex",
+            ],
+            flags: ["--non-interactive"],
+            positionals: []
+        )
+
+        try SwiftNestCLI.runOnboard(parsed: parsed, repository: SwiftNestRepository(rootURL: starterRoot))
+
+        let skillURL = targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md")
+        XCTAssertTrue(fileManager.fileExists(atPath: skillURL.path))
+
+        let skillText = try String(contentsOf: skillURL, encoding: .utf8)
+        XCTAssertTrue(skillText.contains("name: \"swiftnest-ios-architecture\""))
+        XCTAssertTrue(skillText.contains("Apply this skill whenever the task touches app structure"))
+
+        let state = try SwiftNestRepository(rootURL: targetRoot).loadState()
+        XCTAssertEqual(state.skillAgent, "codex")
+        XCTAssertEqual(
+            try String(contentsOf: targetRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "codex\n"
+        )
     }
 
     func testOnboardPreservesExistingLegacyNamedPathsInTargetRepository() throws {
@@ -722,6 +773,43 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertEqual(state.profile, "advanced")
         XCTAssertEqual(state.skills, ["ios-architecture", "swiftui-rules"])
         XCTAssertTrue(fileManager.fileExists(atPath: legacyRoot.appendingPathComponent(".swiftnest/rendered_context.md").path))
+    }
+
+    func testRunUpgradePreservesCodexSkillAgentAndRefreshesAgentSkills() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let repositoryRoot = try makeRepositoryFixture()
+        let repository = SwiftNestRepository(rootURL: repositoryRoot, assetRootURL: starterRoot)
+        let configURL = repositoryRoot.appendingPathComponent("config/project.yaml")
+        try String(contentsOf: repositoryRoot.appendingPathComponent("config/project.example.yaml"), encoding: .utf8)
+            .write(to: configURL, atomically: true, encoding: .utf8)
+
+        let initialState = SwiftNestState(
+            profile: "basic",
+            skills: ["ios-architecture"],
+            workflows: ["add-feature", "fix-bug", "refactor", "build"],
+            skillAgent: "codex",
+            configPath: "config/project.yaml",
+            contextPath: ".swiftnest/rendered_context.md"
+        )
+        try repository.saveState(initialState)
+
+        try SwiftNestCLI.runUpgrade(
+            parsed: ParsedArguments(values: ["--to": "advanced"], flags: [], positionals: []),
+            repository: repository
+        )
+
+        let upgradedState = try repository.loadState()
+        XCTAssertEqual(upgradedState.skillAgent, "codex")
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: repositoryRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md").path
+            )
+        )
+        XCTAssertEqual(
+            try String(contentsOf: repositoryRoot.appendingPathComponent(".swiftnest/selected_skill_agent.txt"), encoding: .utf8),
+            "codex\n"
+        )
     }
 
     func testLocateManagedRepositorySkipsStarterCheckoutEvenWhenAssetRootDiffers() throws {
@@ -1372,6 +1460,7 @@ final class SwiftNestCLITests: XCTestCase {
 
         let directoryPaths = [
             "profiles",
+            "resources/agents/codex/skills",
             "templates/Docs/AI_SKILLS",
             "templates/Workflows",
             "tools/swiftnest-cli/Sources",
@@ -1408,6 +1497,11 @@ final class SwiftNestCLITests: XCTestCase {
             "templates/Docs/AI_SKILLS/networking-rules.md",
             "templates/Docs/AI_SKILLS/swiftui-rules.md",
             "templates/Docs/AI_SKILLS/testing-rules.md",
+            "resources/agents/codex/skills/concurrency-rules/SKILL.md",
+            "resources/agents/codex/skills/ios-architecture/SKILL.md",
+            "resources/agents/codex/skills/networking-rules/SKILL.md",
+            "resources/agents/codex/skills/swiftui-rules/SKILL.md",
+            "resources/agents/codex/skills/testing-rules/SKILL.md",
             "templates/Workflows/add-feature.md",
             "templates/Workflows/build.md",
             "templates/Workflows/fix-bug.md",
@@ -1497,6 +1591,46 @@ final class SwiftNestCLITests: XCTestCase {
             # Testing Rules
 
             Apply this skill whenever logic changes are introduced.
+            """,
+            "resources/agents/codex/skills/concurrency-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/ios-architecture/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/networking-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/swiftui-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
+            """,
+            "resources/agents/codex/skills/testing-rules/SKILL.md": """
+            ---
+            name: "{{SWIFTNEST_AGENT_SKILL_NAME}}"
+            description: "{{SWIFTNEST_AGENT_SKILL_DESCRIPTION}}"
+            ---
+
+            {{SWIFTNEST_AGENT_SKILL_CONTENT}}
             """,
             "templates/Workflows/onboarding-review.md": """
             # Workflow: Onboarding Review

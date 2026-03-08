@@ -6,7 +6,7 @@ class Swiftnest < Formula
   sha256 "__SWIFTNEST_RELEASE_SHA256__"
 
   def install
-    libexec.install "Makefile", "templates", "profiles"
+    libexec.install "Makefile", "templates", "profiles", "resources"
     (libexec/"config").install "config/project.example.yaml"
     (libexec/"tools/swiftnest-cli").install "tools/swiftnest-cli/Package.swift", "tools/swiftnest-cli/Sources", "tools/swiftnest-cli/Tests"
     (libexec/"VERSION").write "#{version}\n"
@@ -37,12 +37,14 @@ class Swiftnest < Formula
     assert_match "개인 프로젝트", shell_output("SWIFTNEST_LANG=ko #{bin}/swiftnest list-profiles")
 
     target = testpath/"sample-repo"
-    system "#{bin}/swiftnest", "--lang", "ko", "onboard", "--target", target, "--non-interactive"
+    system "#{bin}/swiftnest", "--lang", "ko", "onboard", "--target", target, "--skill-agent", "codex", "--non-interactive"
 
     assert_predicate target/"config/project.yaml", :exist?
     assert_predicate target/"AGENTS.md", :exist?
     assert_predicate target/".swiftnest/state.json", :exist?
+    assert_predicate target/".swiftnest/selected_skill_agent.txt", :exist?
     assert_predicate target/".swiftnest/workflows/onboarding-review.md", :exist?
+    assert_predicate target/".agents/skills/swiftnest-ios-architecture/SKILL.md", :exist?
     assert_predicate target/"profiles/advanced.yaml", :exist?
     assert_predicate target/"templates/Docs/AI_RULES.md", :exist?
     refute_predicate target/"swiftnest", :exist?
