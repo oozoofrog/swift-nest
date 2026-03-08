@@ -1212,13 +1212,11 @@ enum SwiftNestCLI {
         skills: [String],
         repository: SwiftNestRepository
     ) throws {
-        try cleanupCodexSkillEnvironment(repository: repository)
-
         let fileManager = repository.fileManager
         let resourceRootURL = repository.resourcesURL.appendingPathComponent("agents/codex/skills", isDirectory: true)
-        try fileManager.createDirectory(at: repository.agentSkillsDirectoryURL, withIntermediateDirectories: true)
         let repoLocalCustomSkills = try repoLocalCustomSkillNames(repository: repository)
 
+        var preparedBundles: [(name: String, destinationDirectoryURL: URL, rendered: String)] = []
         var installedDirectories: [String] = []
         for skill in skills.sorted() {
             let slug = "swiftnest-\(skill)"
@@ -1248,13 +1246,19 @@ enum SwiftNestCLI {
                 "SWIFTNEST_SOURCE_SKILL_FILE": "\(skill).md",
             ]
             let rendered = renderString(template, context: context)
-            try fileManager.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
-            try rendered.write(
-                to: destinationDirectoryURL.appendingPathComponent("SKILL.md"),
+            preparedBundles.append((slug, destinationDirectoryURL, rendered))
+            installedDirectories.append(slug)
+        }
+
+        try cleanupCodexSkillEnvironment(repository: repository)
+        try fileManager.createDirectory(at: repository.agentSkillsDirectoryURL, withIntermediateDirectories: true)
+        for bundle in preparedBundles {
+            try fileManager.createDirectory(at: bundle.destinationDirectoryURL, withIntermediateDirectories: true)
+            try bundle.rendered.write(
+                to: bundle.destinationDirectoryURL.appendingPathComponent("SKILL.md"),
                 atomically: true,
                 encoding: .utf8
             )
-            installedDirectories.append(slug)
         }
 
         try fileManager.createDirectory(at: repository.agentSkillStateDirectoryURL, withIntermediateDirectories: true)
@@ -1549,7 +1553,7 @@ enum SwiftNestCLI {
         return lhsData == rhsData
     }
 
-    static func printWarnings(for targetURL: URL, fileManager: FileManager) {
+    static func printGitignoreWarnings(for targetURL: URL, fileManager: FileManager) {
         let gitignoreURL = targetURL.appendingPathComponent(".gitignore")
         if let gitignoreText = try? String(contentsOf: gitignoreURL, encoding: .utf8) {
             for rawLine in gitignoreText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
@@ -1567,6 +1571,10 @@ enum SwiftNestCLI {
                 }
             }
         }
+    }
+
+    static func printWarnings(for targetURL: URL, fileManager: FileManager) {
+        printGitignoreWarnings(for: targetURL, fileManager: fileManager)
 
         if fileManager.fileExists(atPath: targetURL.appendingPathComponent("Docs").path) {
             print(SwiftNestLocalizer.text(.warningDocsAlreadyExists))

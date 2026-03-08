@@ -78,7 +78,17 @@ extension SwiftNestCLI {
             currentDirectoryURL: currentDirectoryURL
         )
         let targetRepository = SwiftNestRepository(rootURL: targetURL, assetRootURL: repository.assetRootURL)
-        let existingState = try loadOnboardingStateIfPresent(repository: targetRepository)
+        let force = parsed.contains("--force")
+        let existingState: SwiftNestState?
+        do {
+            existingState = try loadOnboardingStateIfPresent(repository: targetRepository)
+        } catch {
+            if force {
+                existingState = nil
+            } else {
+                throw error
+            }
+        }
         let configURL = resolveOnboardingConfigURL(
             parsed.value(for: "--config"),
             targetRootURL: targetURL,
@@ -92,10 +102,10 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingStarterPath, status.starterRootURL.path))
         print(SwiftNestLocalizer.text(.onboardingTargetPath, status.targetRootURL.path))
 
-        if !status.targetAlreadyManaged || parsed.contains("--force") {
+        if !status.targetAlreadyManaged || force {
             let installResult = try installManagedFiles(
                 into: status.targetRootURL,
-                force: parsed.contains("--force"),
+                force: force,
                 dryRun: false,
                 repository: repository
             )
@@ -112,7 +122,7 @@ extension SwiftNestCLI {
             at: status.configURL,
             repository: targetRepository,
             interactive: interactive,
-            force: parsed.contains("--force")
+            force: force
         )
 
         if configCreated {
@@ -129,10 +139,13 @@ extension SwiftNestCLI {
         let currentState = try currentOnboardingState(
             existingState: existingState,
             repository: targetRepository,
-            shouldLoad: refreshedStatus.stateExists
+            shouldLoad: refreshedStatus.stateExists && !force
         )
         let selectionOverridesWereProvided = onboardingSelectionOverridesWereProvided(parsed: parsed)
-        if refreshedStatus.stateExists && !parsed.contains("--force") && !selectionOverridesWereProvided {
+        if refreshedStatus.targetAlreadyManaged && selectionOverridesWereProvided && !force {
+            printGitignoreWarnings(for: refreshedStatus.targetRootURL, fileManager: repository.fileManager)
+        }
+        if refreshedStatus.stateExists && !force && !selectionOverridesWereProvided {
             guard let currentState else {
                 throw SwiftNestError(SwiftNestLocalizer.text(.noStateFile))
             }

@@ -1,5 +1,10 @@
 import Foundation
 import XCTest
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 @testable import SwiftNestCLI
 
 final class SwiftNestCLITests: XCTestCase {
@@ -1162,6 +1167,152 @@ final class SwiftNestCLITests: XCTestCase {
         )
     }
 
+    func testSyncCodexSkillEnvironmentDoesNotDeleteExistingBundlesWhenValidationFails() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("CodexValidationFailure-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("CodexValidationFailure.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: [
+                    "--target": targetRoot.path,
+                    "--profile": "basic",
+                    "--skill-agent": "codex",
+                ],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let repository = SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        let generatedBundleURL = targetRoot.appendingPathComponent(".agents/skills/swiftnest-ios-architecture/SKILL.md")
+        let originalBundle = try String(contentsOf: generatedBundleURL, encoding: .utf8)
+        try """
+        # Custom Skill
+
+        Use this skill whenever the repository needs custom domain guidance.
+        """.write(
+            to: targetRoot.appendingPathComponent("Docs/AI_SKILLS/custom-skill.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertThrowsError(
+            try SwiftNestCLI.syncCodexSkillEnvironment(skills: ["ios-architecture", "custom-skill"], repository: repository)
+        ) { error in
+            guard let swiftNestError = error as? SwiftNestError else {
+                XCTFail("Expected SwiftNestError")
+                return
+            }
+            XCTAssertEqual(
+                swiftNestError.message,
+                SwiftNestLocalizer.text(.unknownAgentSkillResource, "custom-skill", SwiftNestSkillAgent.codex.rawValue)
+            )
+        }
+
+        XCTAssertEqual(try String(contentsOf: generatedBundleURL, encoding: .utf8), originalBundle)
+        XCTAssertTrue(fileManager.fileExists(atPath: repository.agentSkillStateDirectoryURL.appendingPathComponent("codex_manifest.json").path))
+    }
+
+    func testOnboardForceRecoversFromCorruptStateFile() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("CorruptForceRecovery-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("CorruptForceRecovery.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: ["--target": targetRoot.path],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+
+        let repository = SwiftNestRepository(rootURL: targetRoot, assetRootURL: starterRoot)
+        try "{ invalid json".write(
+            to: repository.stateFileURL,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertNoThrow(
+            try SwiftNestCLI.runOnboard(
+                parsed: ParsedArguments(
+                    values: ["--target": targetRoot.path],
+                    flags: ["--non-interactive", "--force"],
+                    positionals: []
+                ),
+                repository: SwiftNestRepository(rootURL: starterRoot)
+            )
+        )
+
+        let recoveredState = try repository.loadState()
+        XCTAssertEqual(recoveredState.profile, "intermediate")
+        XCTAssertEqual(
+            recoveredState.skills,
+            ["concurrency-rules", "ios-architecture", "networking-rules", "swiftui-rules", "testing-rules"]
+        )
+    }
+
+    func testOnboardOverrideRefreshPrintsGitignoreWarnings() throws {
+        let fileManager = FileManager.default
+        let starterRoot = try makeRepositoryFixture()
+        let targetRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("OnboardWarningRefresh-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: targetRoot.appendingPathComponent("OnboardWarningRefresh.xcworkspace", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        try SwiftNestCLI.runOnboard(
+            parsed: ParsedArguments(
+                values: ["--target": targetRoot.path],
+                flags: ["--non-interactive"],
+                positionals: []
+            ),
+            repository: SwiftNestRepository(rootURL: starterRoot)
+        )
+        try """
+        .swiftnest/
+        .agents/skills/
+        """.write(
+            to: targetRoot.appendingPathComponent(".gitignore"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let output = try captureStandardOutput {
+            try SwiftNestCLI.runOnboard(
+                parsed: ParsedArguments(
+                    values: [
+                        "--target": targetRoot.path,
+                        "--skill-agent": "codex",
+                    ],
+                    flags: ["--non-interactive"],
+                    positionals: []
+                ),
+                repository: SwiftNestRepository(rootURL: starterRoot)
+            )
+        }
+
+        XCTAssertTrue(output.contains(SwiftNestLocalizer.text(.warningGitignoreIgnoresAIHarness)))
+        XCTAssertTrue(output.contains(SwiftNestLocalizer.text(.warningGitignoreIgnoresAgentSkills)))
+    }
+
     func testInstallManagedFilesDoesNotDeleteLegacyNamedPaths() throws {
         let fileManager = FileManager.default
         let repositoryRoot = try makeRepositoryFixture()
@@ -2284,6 +2435,31 @@ final class SwiftNestCLITests: XCTestCase {
             preservableSkillNames: ["ios-architecture", "swift-testing", "code-review"]
         )
         XCTAssertEqual(result, ["swift-testing"])
+    }
+
+    private func captureStandardOutput(_ operation: () throws -> Void) throws -> String {
+        fflush(stdout)
+        let originalStdout = dup(STDOUT_FILENO)
+        XCTAssertNotEqual(originalStdout, -1)
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("swiftnest-stdout-\(UUID().uuidString).log")
+        _ = FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+        let outputHandle = try FileHandle(forWritingTo: outputURL)
+        dup2(outputHandle.fileDescriptor, STDOUT_FILENO)
+
+        defer {
+            fflush(stdout)
+            dup2(originalStdout, STDOUT_FILENO)
+            close(originalStdout)
+            outputHandle.closeFile()
+        }
+
+        try operation()
+        fflush(stdout)
+        outputHandle.closeFile()
+        let data = try Data(contentsOf: outputURL)
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func repositoryRootURL() -> URL {
