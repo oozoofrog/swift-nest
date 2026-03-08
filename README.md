@@ -353,6 +353,7 @@ swiftnest onboard
 make onboard CONFIG=config/project.yaml
 swiftnest list-skills
 swiftnest list-profiles
+swiftnest --version
 swiftnest init --config config/project.yaml --workflows permissions,review
 swiftnest workflow list
 swiftnest workflow print onboarding-review
@@ -369,6 +370,7 @@ Runtime output language can be selected with a global option or environment vari
 
 ```bash
 swiftnest --lang ko --help
+swiftnest --version
 SWIFTNEST_LANG=ko swiftnest list-profiles
 ```
 

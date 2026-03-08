@@ -173,6 +173,67 @@ final class SwiftNestCLITests: XCTestCase {
         )
     }
 
+    func testResolveCLIVersionPrefersEnvironmentValue() {
+        XCTAssertEqual(
+            SwiftNestCLI.resolveCLIVersion(
+                environment: ["SWIFTNEST_VERSION": "v9.9.9"],
+                assetRootLocator: {
+                    throw SwiftNestError("should not resolve asset root")
+                },
+                gitVersionProvider: { _ in
+                    XCTFail("gitVersionProvider should not be called when SWIFTNEST_VERSION is set")
+                    return nil
+                }
+            ),
+            "v9.9.9"
+        )
+    }
+
+    func testResolveCLIVersionUsesVersionFileWhenPresent() throws {
+        let repositoryRoot = try makeRepositoryFixture()
+        try "v1.2.3\n".write(
+            to: repositoryRoot.appendingPathComponent("VERSION"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertEqual(
+            SwiftNestCLI.resolveCLIVersion(
+                environment: [:],
+                assetRootLocator: { repositoryRoot },
+                gitVersionProvider: { _ in
+                    XCTFail("gitVersionProvider should not be called when VERSION exists")
+                    return nil
+                }
+            ),
+            "v1.2.3"
+        )
+    }
+
+    func testRunPrintsVersionForLongFlag() throws {
+        var output: [String] = []
+
+        try SwiftNestCLI.run(
+            arguments: ["--version"],
+            output: { output.append($0) },
+            versionResolver: { "v2.0.0" }
+        )
+
+        XCTAssertEqual(output, ["v2.0.0"])
+    }
+
+    func testRunPrintsVersionForShortFlag() throws {
+        var output: [String] = []
+
+        try SwiftNestCLI.run(
+            arguments: ["-v"],
+            output: { output.append($0) },
+            versionResolver: { "v2.0.0" }
+        )
+
+        XCTAssertEqual(output, ["v2.0.0"])
+    }
+
     func testOnboardingReviewWorkflowDefinitionExistsAndIsLocalized() throws {
         let definition = try XCTUnwrap(SwiftNestCLI.workflowDefinitions["onboarding-review"])
 

@@ -278,6 +278,7 @@ enum SwiftNestCLI {
     // data version 2: global runtime with asset-root / managed-repo separation
     // data version 3: .swiftnest state directory rename
     static let currentDataVersion = 3
+    static let fallbackCLIVersion = "development"
     static let profileGuidance: [String: String] = [
         "basic": "- Keep output concise and implementation-focused.\n- Prefer minimal abstractions.\n- Do not add extra process unless the task clearly benefits.",
         "intermediate": "- Include explicit self-review.\n- Add regression tests for bug fixes when practical.\n- Call out state transition risks when async or permission logic is involved.",
@@ -289,9 +290,18 @@ enum SwiftNestCLI {
         "intermediate": "- Verify layer boundaries and regression risk before finishing.",
         "advanced": "- Verify privacy, performance, concurrency safety, and regression protection before finishing.",
     ]
-    static func run(arguments: [String]) throws {
+    static func run(
+        arguments: [String],
+        output: (String) -> Void = { print($0) },
+        versionResolver: () -> String = { resolveCLIVersion() }
+    ) throws {
         guard let command = arguments.first else {
             printTopLevelUsage()
+            return
+        }
+
+        if command == "-v" || command == "--version" {
+            output(versionResolver())
             return
         }
 
@@ -388,6 +398,68 @@ enum SwiftNestCLI {
         default:
             throw SwiftNestError(SwiftNestLocalizer.text(.unknownCommand, command))
         }
+    }
+
+    static func resolveCLIVersion(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        assetRootLocator: () throws -> URL = { try SwiftNestRepository.locateAssetRoot() },
+        fileManager: FileManager = .default,
+        gitVersionProvider: (URL) -> String? = { gitDescribedVersion(at: $0) }
+    ) -> String {
+        if let version = sanitizedVersion(environment["SWIFTNEST_VERSION"]) {
+            return version
+        }
+
+        if let assetRootURL = try? assetRootLocator() {
+            let versionFileURL = assetRootURL.appendingPathComponent("VERSION")
+            if fileManager.fileExists(atPath: versionFileURL.path),
+               let rawValue = try? String(contentsOf: versionFileURL, encoding: .utf8),
+               let version = sanitizedVersion(rawValue)
+            {
+                return version
+            }
+
+            if let version = gitVersionProvider(assetRootURL) {
+                return version
+            }
+        }
+
+        return fallbackCLIVersion
+    }
+
+    static func sanitizedVersion(_ rawValue: String?) -> String? {
+        guard let trimmed = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
+    static func gitDescribedVersion(at assetRootURL: URL) -> String? {
+        let gitMetadataURL = assetRootURL.appendingPathComponent(".git")
+        guard FileManager.default.fileExists(atPath: gitMetadataURL.path) else {
+            return nil
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["git", "-C", assetRootURL.path, "describe", "--tags", "--always", "--dirty"]
+        let stdoutPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return nil
+        }
+
+        guard process.terminationStatus == 0 else {
+            return nil
+        }
+
+        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        return sanitizedVersion(String(decoding: stdoutData, as: UTF8.self))
     }
 
     static func runInstall(

@@ -9,6 +9,7 @@ class Swiftnest < Formula
     libexec.install "Makefile", "templates", "profiles"
     (libexec/"config").install "config/project.example.yaml"
     (libexec/"tools/swiftnest-cli").install "tools/swiftnest-cli/Package.swift", "tools/swiftnest-cli/Sources", "tools/swiftnest-cli/Tests"
+    (libexec/"VERSION").write "#{version}\n"
 
     system "swift", "build",
            "--package-path", libexec/"tools/swiftnest-cli",
@@ -31,6 +32,7 @@ class Swiftnest < Formula
   end
 
   test do
+    assert_equal version.to_s, shell_output("#{bin}/swiftnest --version").strip
     assert_match "ios-architecture", shell_output("#{bin}/swiftnest list-skills")
     assert_match "개인 프로젝트", shell_output("SWIFTNEST_LANG=ko #{bin}/swiftnest list-profiles")
 

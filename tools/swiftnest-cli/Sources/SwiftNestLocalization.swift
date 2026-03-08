@@ -314,7 +314,10 @@ enum SwiftNestLocalizer {
             .warningDocsAlreadyExists: "warning: Docs/ already exists. Review generated files after init before committing.",
             .warningAIHarnessAlreadyExists: "warning: .swiftnest/ already exists. Review current state before rerendering or upgrading.",
             .usageTopLevel: """
-            usage: swiftnest [--lang <en|ko>] <command> [options]
+            usage: swiftnest [--lang <en|ko>] [--version|-v] <command> [options]
+
+            Options:
+              -v, --version  Print the installed SwiftNest CLI version
 
             Commands:
               onboard        Install, configure, and initialize SwiftNest for a repository
@@ -463,7 +466,10 @@ enum SwiftNestLocalizer {
             .warningDocsAlreadyExists: "경고: Docs/가 이미 존재합니다. 커밋 전에 init으로 생성된 파일을 검토하세요.",
             .warningAIHarnessAlreadyExists: "경고: .swiftnest/가 이미 존재합니다. 다시 렌더링하거나 업그레이드하기 전에 현재 상태를 검토하세요.",
             .usageTopLevel: """
-            사용법: swiftnest [--lang <en|ko>] <command> [options]
+            사용법: swiftnest [--lang <en|ko>] [--version|-v] <command> [options]
+
+            옵션:
+              -v, --version  설치된 SwiftNest CLI 버전 출력
 
             명령:
               onboard        저장소에 SwiftNest를 설치, 설정, 초기화
