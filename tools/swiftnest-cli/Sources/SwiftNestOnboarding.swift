@@ -223,7 +223,13 @@ extension SwiftNestCLI {
     static func resolveOnboardingTargetURL(
         parsed: ParsedArguments,
         repository: SwiftNestRepository,
-        currentDirectoryURL: URL
+        currentDirectoryURL: URL,
+        standardInputIsTTY: () -> Bool = {
+            isatty(fileno(stdin)) != 0
+        },
+        lineReader: () -> String? = {
+            readLine()
+        }
     ) throws -> URL {
         if let rawTarget = parsed.value(for: "--target"), !rawTarget.isEmpty {
             return URL(fileURLWithPath: rawTarget, isDirectory: true).standardizedFileURL
@@ -246,7 +252,23 @@ extension SwiftNestCLI {
             return currentRepository.rootURL
         }
 
-        throw SwiftNestError(SwiftNestLocalizer.text(.onboardingRequiresTargetOutsideRepository))
+        guard !parsed.contains("--non-interactive"), standardInputIsTTY() else {
+            throw SwiftNestError(SwiftNestLocalizer.text(.onboardingRequiresTargetOutsideRepository))
+        }
+
+        let gitRootURL = SwiftNestRepository.findGitRepositoryRoot(
+            currentDirectoryURL: resolvedCurrentDirectoryURL,
+            fileManager: repository.fileManager
+        )
+        let implicitTargetURL = gitRootURL ?? resolvedCurrentDirectoryURL
+        try confirmImplicitTarget(
+            commandName: "onboard",
+            targetURL: implicitTargetURL,
+            currentDirectoryURL: resolvedCurrentDirectoryURL,
+            gitRepositoryRootURL: gitRootURL,
+            lineReader: lineReader
+        )
+        return implicitTargetURL
     }
 
     static func resolveOnboardingConfigURL(_ rawPath: String?, targetRootURL: URL) -> URL {
