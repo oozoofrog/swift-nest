@@ -148,7 +148,12 @@ extension SwiftNestCLI {
             preferredProfileName: currentState?.profile
         )
         let profile = try HarnessDocumentLoader.loadObject(at: targetRepository.profileURL(named: profileName))
-        let defaultSkills = currentState?.skills ?? HarnessDocumentLoader.stringArray(profile, key: "default_skills")
+        let defaultSkills = effectiveOnboardingDefaultSkills(
+            parsed: parsed,
+            profileDefaultSkills: HarnessDocumentLoader.stringArray(profile, key: "default_skills"),
+            existingState: currentState,
+            preservableSkillNames: try onboardingPreservableSkillNames(repository: targetRepository)
+        )
         let skills = try resolveOnboardingSkills(
             parsed: parsed,
             defaultSkills: defaultSkills,
@@ -660,6 +665,26 @@ extension SwiftNestCLI {
 
     static func onboardingDefaultWorkflows(repository: SwiftNestRepository) -> [String] {
         defaultOnboardingWorkflowNames.filter { workflowTemplateExists(named: $0, repository: repository) }
+    }
+
+    static func effectiveOnboardingDefaultSkills(
+        parsed: ParsedArguments,
+        profileDefaultSkills: [String],
+        existingState: SwiftNestState?,
+        preservableSkillNames: Set<String>
+    ) -> [String] {
+        guard !onboardingOptionWasProvided("--skills", parsed: parsed) else {
+            return profileDefaultSkills
+        }
+        guard let existingState else {
+            return profileDefaultSkills
+        }
+        guard !existingState.skills.isEmpty else {
+            return []
+        }
+
+        let validExisting = existingState.skills.filter { preservableSkillNames.contains($0) }
+        return validExisting.isEmpty ? profileDefaultSkills : validExisting
     }
 
     static func effectiveOnboardingDefaultWorkflows(
