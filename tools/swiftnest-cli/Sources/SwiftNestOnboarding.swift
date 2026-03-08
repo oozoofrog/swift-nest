@@ -77,7 +77,14 @@ extension SwiftNestCLI {
             repository: repository,
             currentDirectoryURL: currentDirectoryURL
         )
-        let configURL = resolveOnboardingConfigURL(parsed.value(for: "--config"), targetRootURL: targetURL)
+        let targetRepository = SwiftNestRepository(rootURL: targetURL, assetRootURL: repository.assetRootURL)
+        let existingState = try loadOnboardingStateIfPresent(repository: targetRepository)
+        let configURL = resolveOnboardingConfigURL(
+            parsed.value(for: "--config"),
+            targetRootURL: targetURL,
+            existingState: existingState,
+            repository: targetRepository
+        )
         var status = onboardingStatus(starterRepository: repository, targetRootURL: targetURL, configURL: configURL)
         let interactive = shouldRunInteractively(parsed: parsed)
 
@@ -101,7 +108,6 @@ extension SwiftNestCLI {
             print(SwiftNestLocalizer.text(.onboardingManagedFilesReady, status.targetRootURL.path))
         }
 
-        let targetRepository = SwiftNestRepository(rootURL: status.targetRootURL, assetRootURL: repository.assetRootURL)
         let configCreated = try ensureOnboardingConfig(
             at: status.configURL,
             repository: targetRepository,
@@ -120,16 +126,29 @@ extension SwiftNestCLI {
             targetRootURL: status.targetRootURL,
             configURL: status.configURL
         )
-        if refreshedStatus.stateExists && !parsed.contains("--force") {
-            let state = try targetRepository.loadState()
+        let currentState = try currentOnboardingState(
+            existingState: existingState,
+            repository: targetRepository,
+            shouldLoad: refreshedStatus.stateExists
+        )
+        let selectionOverridesWereProvided = onboardingSelectionOverridesWereProvided(parsed: parsed)
+        if refreshedStatus.stateExists && !parsed.contains("--force") && !selectionOverridesWereProvided {
+            guard let currentState else {
+                throw SwiftNestError(SwiftNestLocalizer.text(.noStateFile))
+            }
+            let state = currentState
             printOnboardingAlreadyCompletedSummary(state: state, repository: targetRepository)
             return
         }
-
         let config = try HarnessDocumentLoader.loadObject(at: refreshedStatus.configURL)
-        let profileName = try resolveOnboardingProfile(parsed: parsed, repository: targetRepository, interactive: interactive)
+        let profileName = try resolveOnboardingProfile(
+            parsed: parsed,
+            repository: targetRepository,
+            interactive: interactive,
+            preferredProfileName: currentState?.profile
+        )
         let profile = try HarnessDocumentLoader.loadObject(at: targetRepository.profileURL(named: profileName))
-        let defaultSkills = HarnessDocumentLoader.stringArray(profile, key: "default_skills")
+        let defaultSkills = currentState?.skills ?? HarnessDocumentLoader.stringArray(profile, key: "default_skills")
         let skills = try resolveOnboardingSkills(
             parsed: parsed,
             defaultSkills: defaultSkills,
@@ -140,9 +159,17 @@ extension SwiftNestCLI {
             parsed: parsed,
             interactive: interactive,
             repository: targetRepository,
-            defaultWorkflows: onboardingDefaultWorkflows(repository: targetRepository)
+            defaultWorkflows: effectiveOnboardingDefaultWorkflows(
+                parsed: parsed,
+                repository: targetRepository,
+                existingState: currentState
+            )
         )
-        let skillAgent = try resolveSkillAgentSelection(parsed: parsed, interactive: interactive)
+        let skillAgent = try resolveSkillAgentSelection(
+            parsed: parsed,
+            interactive: interactive,
+            defaultSkillAgent: currentState.flatMap { SwiftNestSkillAgent.resolved(from: $0.skillAgent) }
+        )
 
         let result = try initializeHarness(
             config: config,
@@ -231,6 +258,35 @@ extension SwiftNestCLI {
         )
     }
 
+    static func loadOnboardingStateIfPresent(repository: SwiftNestRepository) throws -> SwiftNestState? {
+        guard repository.fileManager.fileExists(atPath: repository.stateFileURL.path) else {
+            return nil
+        }
+        return try repository.loadState()
+    }
+
+    static func currentOnboardingState(
+        existingState: SwiftNestState?,
+        repository: SwiftNestRepository,
+        shouldLoad: Bool
+    ) throws -> SwiftNestState? {
+        if let existingState {
+            return existingState
+        }
+        guard shouldLoad else {
+            return nil
+        }
+        return try repository.loadState()
+    }
+
+    static func onboardingOptionWasProvided(_ option: String, parsed: ParsedArguments) -> Bool {
+        parsed.values.keys.contains(option)
+    }
+
+    static func onboardingSelectionOverridesWereProvided(parsed: ParsedArguments) -> Bool {
+        ["--profile", "--skills", "--workflows", "--skill-agent"].contains { onboardingOptionWasProvided($0, parsed: parsed) }
+    }
+
     static func resolveOnboardingTargetURL(
         parsed: ParsedArguments,
         repository: SwiftNestRepository,
@@ -282,10 +338,17 @@ extension SwiftNestCLI {
         return implicitTargetURL
     }
 
-    static func resolveOnboardingConfigURL(_ rawPath: String?, targetRootURL: URL) -> URL {
+    static func resolveOnboardingConfigURL(
+        _ rawPath: String?,
+        targetRootURL: URL,
+        existingState: SwiftNestState? = nil,
+        repository: SwiftNestRepository? = nil
+    ) -> URL {
         let configPath: String
         if let rawPath, !rawPath.isEmpty {
             configPath = rawPath
+        } else if let existingState, let repository {
+            return repository.resolveStatePath(existingState.configPath).resolvingSymlinksInPath().standardizedFileURL
         } else {
             configPath = "config/project.yaml"
         }
@@ -502,13 +565,22 @@ extension SwiftNestCLI {
     static func resolveOnboardingProfile(
         parsed: ParsedArguments,
         repository: SwiftNestRepository,
-        interactive: Bool
+        interactive: Bool,
+        preferredProfileName: String? = nil
     ) throws -> String {
         if let profile = parsed.value(for: "--profile"), !profile.isEmpty {
             return profile
         }
         if interactive {
-            return try chooseProfileInteractively(repository: repository, defaultProfileName: defaultOnboardingProfileName)
+            return try chooseProfileInteractively(
+                repository: repository,
+                defaultProfileName: preferredProfileName ?? defaultOnboardingProfileName
+            )
+        }
+        if let preferredProfileName,
+           repository.fileManager.fileExists(atPath: repository.profilesURL.appendingPathComponent("\(preferredProfileName).yaml").path)
+        {
+            return preferredProfileName
         }
         if repository.fileManager.fileExists(atPath: repository.profilesURL.appendingPathComponent("\(defaultOnboardingProfileName).yaml").path) {
             return defaultOnboardingProfileName
@@ -536,15 +608,16 @@ extension SwiftNestCLI {
 
     static func resolveSkillAgentSelection(
         parsed: ParsedArguments,
-        interactive: Bool
+        interactive: Bool,
+        defaultSkillAgent: SwiftNestSkillAgent? = nil
     ) throws -> SwiftNestSkillAgent? {
         if let rawSkillAgent = parsed.value(for: "--skill-agent") {
             return try validateSkillAgentSelection(rawSkillAgent)
         }
         if interactive {
-            return try chooseSkillAgentInteractively()
+            return try chooseSkillAgentInteractively(defaultSkillAgent: defaultSkillAgent)
         }
-        return nil
+        return defaultSkillAgent
     }
 
     static func validateSkillAgentSelection(_ rawValue: String) throws -> SwiftNestSkillAgent? {
@@ -589,6 +662,17 @@ extension SwiftNestCLI {
         defaultOnboardingWorkflowNames.filter { workflowTemplateExists(named: $0, repository: repository) }
     }
 
+    static func effectiveOnboardingDefaultWorkflows(
+        parsed: ParsedArguments,
+        repository: SwiftNestRepository,
+        existingState: SwiftNestState?
+    ) -> [String] {
+        if let existingState, !onboardingOptionWasProvided("--workflows", parsed: parsed) {
+            return normalizedWorkflowNames(existingState.workflows)
+        }
+        return onboardingDefaultWorkflows(repository: repository)
+    }
+
     static func chooseWorkflowsInteractively(
         defaultWorkflows: [String],
         repository: SwiftNestRepository
@@ -623,7 +707,7 @@ extension SwiftNestCLI {
         return definitions.map(\.name).filter { merged.contains($0) }
     }
 
-    static func chooseSkillAgentInteractively() throws -> SwiftNestSkillAgent? {
+    static func chooseSkillAgentInteractively(defaultSkillAgent: SwiftNestSkillAgent? = nil) throws -> SwiftNestSkillAgent? {
         let options: [(label: String, value: SwiftNestSkillAgent?)] = [
             (SwiftNestLocalizer.text(.skillAgentNoneLabel), nil),
             (SwiftNestLocalizer.text(.skillAgentCodexLabel), .codex),
@@ -634,13 +718,28 @@ extension SwiftNestCLI {
             print("  \(index + 1). \(option.label)")
         }
 
-        print(SwiftNestLocalizer.text(.selectSkillAgentPrompt, "1"), terminator: "")
+        let defaultNumber = options.firstIndex { $0.value == defaultSkillAgent }.map { String($0 + 1) } ?? "1"
+        print(SwiftNestLocalizer.text(.selectSkillAgentPrompt, defaultNumber), terminator: "")
         let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let chosen = raw.isEmpty ? "1" : raw
+        let chosen = raw.isEmpty ? defaultNumber : raw
         guard let number = Int(chosen), options.indices.contains(number - 1) else {
             throw SwiftNestError(SwiftNestLocalizer.text(.selectionOutOfRange, chosen))
         }
         return options[number - 1].value
+    }
+
+    static func storedSkillAgentSelection(repository: SwiftNestRepository) -> SwiftNestSkillAgent? {
+        if repository.fileManager.fileExists(atPath: repository.selectedSkillAgentURL.path),
+           let rawSkillAgent = try? String(contentsOf: repository.selectedSkillAgentURL, encoding: .utf8)
+        {
+            return SwiftNestSkillAgent.resolved(from: rawSkillAgent)
+        }
+
+        if repository.fileManager.fileExists(atPath: repository.stateFileURL.path) {
+            return (try? repository.loadState()).flatMap { SwiftNestSkillAgent.resolved(from: $0.skillAgent) }
+        }
+
+        return nil
     }
 
     static func printOnboardingAlreadyCompletedSummary(state: SwiftNestState, repository: SwiftNestRepository) {
@@ -690,7 +789,12 @@ extension SwiftNestCLI {
         if normalizedSkillAgentRawValue(result.skillAgent) == SwiftNestSkillAgent.codex.rawValue {
             print(SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsInstalled, repository.agentSkillsDirectoryURL.path))
         } else {
-            print(SwiftNestLocalizer.text(.onboardingNextStepCodexSkillsNeeded))
+            print(
+                SwiftNestLocalizer.text(
+                    .onboardingNextStepCodexSkillsNeeded,
+                    codexSkillAgentFollowUpCommand(configURL: configURL, state: result, repository: repository)
+                )
+            )
         }
         print(SwiftNestLocalizer.text(.onboardingNextStepAgentRoot, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
@@ -719,5 +823,39 @@ extension SwiftNestCLI {
             }
         }
         return SwiftNestLocalizer.text(.onboardingSkillSummaryFallback)
+    }
+
+    static func codexSkillAgentFollowUpCommand(
+        configURL: URL,
+        state: SwiftNestState,
+        repository: SwiftNestRepository
+    ) -> String {
+        [
+            "swiftnest",
+            "init",
+            "--config",
+            shellQuotedArgument(repository.serializeStatePath(configURL)),
+            "--profile",
+            shellQuotedArgument(state.profile),
+            "--skills",
+            shellQuotedArgument(state.skills.joined(separator: ",")),
+            "--workflows",
+            shellQuotedArgument(normalizedWorkflowNames(state.workflows).joined(separator: ",")),
+            "--skill-agent",
+            SwiftNestSkillAgent.codex.rawValue,
+        ].joined(separator: " ")
+    }
+
+    static func shellQuotedArgument(_ value: String) -> String {
+        guard !value.isEmpty else {
+            return "''"
+        }
+
+        let safeScalars = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._/:,")
+        if value.unicodeScalars.allSatisfy({ safeScalars.contains($0) }) {
+            return value
+        }
+
+        return "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
     }
 }

@@ -674,7 +674,11 @@ enum SwiftNestCLI {
             profileName: profileName,
             skills: skills,
             workflows: workflows,
-            skillAgent: try resolveSkillAgentSelection(parsed: parsed, interactive: interactive),
+            skillAgent: try resolveSkillAgentSelection(
+                parsed: parsed,
+                interactive: interactive,
+                defaultSkillAgent: storedSkillAgentSelection(repository: repository)
+            ),
             repository: repository
         )
 
