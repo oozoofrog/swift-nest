@@ -624,6 +624,7 @@ extension SwiftNestCLI {
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewConfig, configURL.path))
         print(SwiftNestLocalizer.text(.onboardingNextStepReviewAgents))
         printOnboardingReviewFollowUpIfNeeded(workflows: result.workflows)
+        print(SwiftNestLocalizer.text(.onboardingNextStepCodexSkills))
         print(SwiftNestLocalizer.text(.onboardingNextStepAgentRoot, repository.rootURL.path))
         print(SwiftNestLocalizer.text(.renderedContext, contextURL.path))
     }

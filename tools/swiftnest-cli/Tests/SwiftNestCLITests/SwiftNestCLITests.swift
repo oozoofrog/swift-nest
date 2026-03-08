@@ -165,6 +165,21 @@ final class SwiftNestCLITests: XCTestCase {
         XCTAssertTrue(SwiftNestLocalizer.text(.chooseProfileNumberPrompt, language: .ko, "2").contains("프로필 번호"))
     }
 
+    func testCodexSkillOnboardingFollowUpStringsAreLocalized() {
+        XCTAssertTrue(
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .en).contains("Codex skill onboarding")
+        )
+        XCTAssertTrue(
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .en).contains(".swiftnest/selected_skills.txt")
+        )
+        XCTAssertTrue(
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .ko).contains("추가 Codex 스킬 온보딩")
+        )
+        XCTAssertTrue(
+            SwiftNestLocalizer.text(.onboardingNextStepCodexSkills, language: .ko).contains("자동 등록")
+        )
+    }
+
     func testWorkflowRuntimeDescriptionIsLocalized() throws {
         let definition = try XCTUnwrap(SwiftNestCLI.workflowDefinitions["add-feature"])
         XCTAssertEqual(
