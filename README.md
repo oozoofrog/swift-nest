@@ -68,6 +68,8 @@ swiftnest onboard \
 
 Use the source checkout's `./swiftnest` only when developing SwiftNest itself. Managed target repositories are expected to use the global `swiftnest` command.
 
+When you run `onboard` or `install` from the target repository root, SwiftNest uses the current working directory as the default target. Keep `--target <path>` for cases where you are bootstrapping a different repository.
+
 ## Homebrew Packaging
 
 SwiftNest ships Homebrew packaging assets under `packaging/homebrew/` for a separate tap repository such as `oozoofrog/homebrew-swiftnest`.
@@ -187,7 +189,6 @@ Example:
 cd /path/to/existing-ios-repo
 
 swiftnest onboard \
-  --target "$PWD" \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules \
   --workflows networking,review
@@ -341,7 +342,7 @@ From any shell where the global `swiftnest` command is installed:
 ```bash
 swiftnest onboard --target /path/to/app-repo
 make onboard TARGET=/path/to/app-repo
-swiftnest install --target /path/to/app-repo
+cd /path/to/app-repo && swiftnest install
 make install-swiftnest TARGET=/path/to/app-repo
 ```
 

@@ -68,6 +68,8 @@ swiftnest onboard \
 
 소스 체크아웃의 `./swiftnest` 는 SwiftNest 자체를 개발할 때만 사용하고, 관리 대상 저장소에서는 전역 `swiftnest` 명령을 사용합니다.
 
+대상 저장소 루트에서 `onboard` 또는 `install`을 실행하면 SwiftNest가 현재 작업 디렉터리를 기본 타겟으로 사용합니다. 다른 저장소를 부트스트랩할 때만 `--target <path>`를 명시하면 됩니다.
+
 ## Homebrew 패키징
 
 SwiftNest는 별도 tap 저장소(예: `oozoofrog/homebrew-swiftnest`)에서 사용할 Homebrew 패키징 자산을 `packaging/homebrew/` 아래에 함께 제공합니다.
@@ -187,7 +189,6 @@ swiftnest onboard --target "$PWD"
 cd /path/to/existing-ios-repo
 
 swiftnest onboard \
-  --target "$PWD" \
   --profile intermediate \
   --skills ios-architecture,swiftui-rules,concurrency-rules,networking-rules,testing-rules \
   --workflows networking,review
@@ -341,7 +342,7 @@ https://github.com/oozoofrog/swift-nest
 ```bash
 swiftnest onboard --target /path/to/app-repo
 make onboard TARGET=/path/to/app-repo
-swiftnest install --target /path/to/app-repo
+cd /path/to/app-repo && swiftnest install
 make install-swiftnest TARGET=/path/to/app-repo
 ```
 

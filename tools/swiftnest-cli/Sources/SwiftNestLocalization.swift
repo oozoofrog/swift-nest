@@ -88,6 +88,7 @@ enum SwiftNestMessageKey: Hashable {
     case onboardingPromptBooleanRetry
     case onboardingSkillSummaryFallback
     case unexpectedPositionalsInstall
+    case installStarterCheckoutRequiresTarget
     case installRequiresTarget
     case targetRepositoryMustDiffer
     case previewedManagedFilesInto
@@ -244,6 +245,7 @@ enum SwiftNestLocalizer {
             .onboardingPromptBooleanRetry: "Please answer with yes or no.",
             .onboardingSkillSummaryFallback: "Review the generated skill file for details.",
             .unexpectedPositionalsInstall: "Unexpected positional arguments for install: %@",
+            .installStarterCheckoutRequiresTarget: "Running install from the SwiftNest starter checkout requires --target <path> so the target app repository is updated instead of the starter itself.",
             .installRequiresTarget: "install requires --target <path>.",
             .targetRepositoryMustDiffer: "Target repository must be different from the starter repository root.",
             .previewedManagedFilesInto: "Previewed SwiftNest-managed files into %@",
@@ -313,7 +315,7 @@ enum SwiftNestLocalizer {
               list-profiles  List available profiles
             """,
             .usageOnboard: "usage: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive] [--force]",
-            .usageInstall: "usage: swiftnest [--lang <en|ko>] install --target <path> [--force] [--dry-run]",
+            .usageInstall: "usage: swiftnest [--lang <en|ko>] install [--target <path>] [--force] [--dry-run]",
             .usageInit: "usage: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive]",
             .usageUpgrade: "usage: swiftnest [--lang <en|ko>] upgrade --to <profile>",
             .usageWorkflow: """
@@ -386,6 +388,7 @@ enum SwiftNestLocalizer {
             .onboardingPromptBooleanRetry: "예 또는 아니오로 답해주세요.",
             .onboardingSkillSummaryFallback: "자세한 내용은 생성된 스킬 문서를 확인하세요.",
             .unexpectedPositionalsInstall: "install 명령에 예상하지 못한 위치 인자가 있습니다: %@",
+            .installStarterCheckoutRequiresTarget: "SwiftNest 스타터 체크아웃에서 install을 실행할 때는 스타터 자체가 아니라 대상 앱 저장소를 갱신하도록 --target <path>가 필요합니다.",
             .installRequiresTarget: "install 명령에는 --target <path>가 필요합니다.",
             .targetRepositoryMustDiffer: "대상 저장소는 스타터 저장소 루트와 달라야 합니다.",
             .previewedManagedFilesInto: "%@에 SwiftNest 관리 파일을 설치하는 미리보기를 실행했습니다",
@@ -455,7 +458,7 @@ enum SwiftNestLocalizer {
               list-profiles  사용 가능한 프로필 나열
             """,
             .usageOnboard: "사용법: swiftnest [--lang <en|ko>] onboard [--target <path>] [--config <path>] [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive] [--force]",
-            .usageInstall: "사용법: swiftnest [--lang <en|ko>] install --target <path> [--force] [--dry-run]",
+            .usageInstall: "사용법: swiftnest [--lang <en|ko>] install [--target <path>] [--force] [--dry-run]",
             .usageInit: "사용법: swiftnest [--lang <en|ko>] init --config <path> [--profile <name>] [--skills <csv>] [--workflows <csv>] [--non-interactive]",
             .usageUpgrade: "사용법: swiftnest [--lang <en|ko>] upgrade --to <profile>",
             .usageWorkflow: """

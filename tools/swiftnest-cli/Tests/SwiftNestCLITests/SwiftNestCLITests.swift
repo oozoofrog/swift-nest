@@ -76,20 +76,43 @@ final class SwiftNestCLITests: XCTestCase {
         }
     }
 
-    func testInstallRequiresTargetMessageUsesLocalizedRuntimeLanguage() throws {
+    func testInstallDefaultsTargetToCurrentDirectoryWhenOmitted() throws {
+        let assetRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
+        let targetRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: targetRoot, withIntermediateDirectories: true)
+
+        try SwiftNestCLI.runInstall(
+            parsed: ParsedArguments(values: [:], flags: [], positionals: []),
+            repository: SwiftNestRepository(rootURL: assetRoot),
+            currentDirectoryURL: targetRoot
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: targetRoot.appendingPathComponent("Makefile").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: targetRoot.appendingPathComponent("templates/Docs/AI_RULES.md").path)
+        )
+    }
+
+    func testInstallFromStarterCheckoutWithoutTargetUsesLocalizedError() throws {
         SwiftNestLocalizer.configure(language: .ko)
+        let starterRoot = try makeRepositoryFixture(includeStarterOnlyPaths: true)
 
         XCTAssertThrowsError(
             try SwiftNestCLI.runInstall(
                 parsed: ParsedArguments(values: [:], flags: [], positionals: []),
-                repository: SwiftNestRepository(rootURL: try makeRepositoryFixture())
+                repository: SwiftNestRepository(rootURL: starterRoot),
+                currentDirectoryURL: starterRoot
             )
         ) { error in
             guard let swiftNestError = error as? SwiftNestError else {
                 XCTFail("Expected SwiftNestError")
                 return
             }
-            XCTAssertEqual(swiftNestError.message, "install 명령에는 --target <path>가 필요합니다.")
+            XCTAssertEqual(
+                swiftNestError.message,
+                "SwiftNest 스타터 체크아웃에서 install을 실행할 때는 스타터 자체가 아니라 대상 앱 저장소를 갱신하도록 --target <path>가 필요합니다."
+            )
         }
     }
 
@@ -603,27 +626,18 @@ final class SwiftNestCLITests: XCTestCase {
         }
     }
 
-    func testOnboardRequiresTargetWhenOutsideRepositoryContext() throws {
+    func testOnboardDefaultsTargetToCurrentDirectoryOutsideRepositoryContext() throws {
         let repository = SwiftNestRepository(rootURL: try makeRepositoryFixture())
         let outsideURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: outsideURL, withIntermediateDirectories: true)
 
-        XCTAssertThrowsError(
-            try SwiftNestCLI.resolveOnboardingTargetURL(
-                parsed: ParsedArguments(values: [:], flags: [], positionals: []),
-                repository: repository,
-                currentDirectoryURL: outsideURL
-            )
-        ) { error in
-            guard let swiftNestError = error as? SwiftNestError else {
-                XCTFail("Expected SwiftNestError")
-                return
-            }
-            XCTAssertEqual(
-                swiftNestError.message,
-                "onboard requires --target <path> when you are not already inside a SwiftNest-managed repository."
-            )
-        }
+        let resolved = try SwiftNestCLI.resolveOnboardingTargetURL(
+            parsed: ParsedArguments(values: [:], flags: [], positionals: []),
+            repository: repository,
+            currentDirectoryURL: outsideURL
+        )
+
+        XCTAssertEqual(resolved, outsideURL.standardizedFileURL)
     }
 
     func testOnboardRequiresTargetFromStarterCheckout() throws {

@@ -369,18 +369,22 @@ enum SwiftNestCLI {
         }
     }
 
-    static func runInstall(parsed: ParsedArguments, repository: SwiftNestRepository) throws {
+    static func runInstall(
+        parsed: ParsedArguments,
+        repository: SwiftNestRepository,
+        currentDirectoryURL: URL? = nil
+    ) throws {
         guard parsed.positionals.isEmpty else {
             throw SwiftNestError(
                 SwiftNestLocalizer.text(.unexpectedPositionalsInstall, parsed.positionals.joined(separator: " "))
             )
         }
 
-        guard let target = parsed.value(for: "--target"), !target.isEmpty else {
-            throw SwiftNestError(SwiftNestLocalizer.text(.installRequiresTarget))
-        }
-
-        let targetURL = URL(fileURLWithPath: target, isDirectory: true).standardizedFileURL
+        let targetURL = try resolveInstallTargetURL(
+            parsed: parsed,
+            repository: repository,
+            currentDirectoryURL: currentDirectoryURL
+        )
         if targetURL.path == repository.rootURL.standardizedFileURL.path {
             throw SwiftNestError(SwiftNestLocalizer.text(.targetRepositoryMustDiffer))
         }
@@ -403,6 +407,30 @@ enum SwiftNestCLI {
             print("  swiftnest onboard --config config/project.yaml")
             print("  swiftnest init --config config/project.yaml --profile intermediate")
         }
+    }
+
+    static func resolveInstallTargetURL(
+        parsed: ParsedArguments,
+        repository: SwiftNestRepository,
+        currentDirectoryURL: URL? = nil
+    ) throws -> URL {
+        if let rawTarget = parsed.value(for: "--target"), !rawTarget.isEmpty {
+            return URL(fileURLWithPath: rawTarget, isDirectory: true).standardizedFileURL
+        }
+
+        let currentDirectoryURL = (currentDirectoryURL ?? URL(
+            fileURLWithPath: repository.fileManager.currentDirectoryPath,
+            isDirectory: true
+        )).resolvingSymlinksInPath().standardizedFileURL
+        let assetRootURL = repository.assetRootURL.resolvingSymlinksInPath().standardizedFileURL
+        let assetPrefix = assetRootURL.path.hasSuffix("/") ? assetRootURL.path : assetRootURL.path + "/"
+
+        if repository.isStarterCheckout,
+           (currentDirectoryURL.path == assetRootURL.path || currentDirectoryURL.path.hasPrefix(assetPrefix)) {
+            throw SwiftNestError(SwiftNestLocalizer.text(.installStarterCheckoutRequiresTarget))
+        }
+
+        return currentDirectoryURL
     }
 
     static func runInit(parsed: ParsedArguments, repository: SwiftNestRepository) throws {

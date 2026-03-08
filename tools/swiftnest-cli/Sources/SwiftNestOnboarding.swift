@@ -246,7 +246,7 @@ extension SwiftNestCLI {
             return currentRepository.rootURL
         }
 
-        throw SwiftNestError(SwiftNestLocalizer.text(.onboardingRequiresTargetOutsideRepository))
+        return resolvedCurrentDirectoryURL
     }
 
     static func resolveOnboardingConfigURL(_ rawPath: String?, targetRootURL: URL) -> URL {
