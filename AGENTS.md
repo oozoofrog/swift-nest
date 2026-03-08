@@ -20,13 +20,13 @@ You are working in the SwiftNest starter and CLI codebase.
 1. Read `Docs/AI_RULES.md`.
 2. Read `Docs/AI_WORKFLOWS.md`.
 3. Read the relevant files under `Docs/AI_SKILLS/`.
-4. When the task matches a workflow below, read the corresponding file under `.ai-harness/workflows/`.
+4. When the task matches a workflow below, read the corresponding file under `.swiftnest/workflows/`.
 
 ## Workflow Entry Points
-- `add-feature`: Use for new CLI behavior, starter template capabilities, or packaging-visible additions. Read `.ai-harness/workflows/add-feature.md`.
-- `fix-bug`: Use for CLI regressions, bootstrap/install issues, or packaging repairs. Read `.ai-harness/workflows/fix-bug.md`.
-- `refactor`: Use for structure-only changes that preserve behavior. Read `.ai-harness/workflows/refactor.md`.
-- `build`: Use for build, test, or packaging verification work. Read `.ai-harness/workflows/build.md`.
+- `add-feature`: Use for new CLI behavior, starter template capabilities, or packaging-visible additions. Read `.swiftnest/workflows/add-feature.md`.
+- `fix-bug`: Use for CLI regressions, bootstrap/install issues, or packaging repairs. Read `.swiftnest/workflows/fix-bug.md`.
+- `refactor`: Use for structure-only changes that preserve behavior. Read `.swiftnest/workflows/refactor.md`.
+- `build`: Use for build, test, or packaging verification work. Read `.swiftnest/workflows/build.md`.
 
 ## Build and Test Commands
 - CLI tests: `swift test --package-path tools/swiftnest-cli`

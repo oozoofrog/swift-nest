@@ -22,7 +22,7 @@ You are working in the {{PROJECT_NAME}} codebase scaffolded by SwiftNest.
 1. Read `Docs/AI_RULES.md`.
 2. Read `Docs/AI_WORKFLOWS.md`.
 3. Read the relevant files under `Docs/AI_SKILLS/`.
-4. When the task matches a workflow below, read the corresponding file under `.ai-harness/workflows/`.
+4. When the task matches a workflow below, read the corresponding file under `.swiftnest/workflows/`.
 
 ## Enabled Skills
 {{SELECTED_SKILLS_BULLETS}}

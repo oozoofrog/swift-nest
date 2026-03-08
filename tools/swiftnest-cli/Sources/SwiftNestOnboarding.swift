@@ -216,7 +216,7 @@ extension SwiftNestCLI {
             targetAlreadyManaged: SwiftNestRepository.isRepositoryRoot(resolvedTargetRoot),
             configURL: configURL.resolvingSymlinksInPath().standardizedFileURL,
             configExists: fileManager.fileExists(atPath: configURL.path),
-            stateExists: fileManager.fileExists(atPath: resolvedTargetRoot.appendingPathComponent(".ai-harness/state.json").path)
+            stateExists: fileManager.fileExists(atPath: resolvedTargetRoot.appendingPathComponent(".swiftnest/state.json").path)
         )
     }
 
@@ -590,10 +590,10 @@ extension SwiftNestCLI {
         print("  - Docs/AI_RULES.md")
         print("  - Docs/AI_WORKFLOWS.md")
         print("  - Docs/AI_SKILLS/*")
-        print("  - .ai-harness/state.json")
-        print("  - .ai-harness/rendered_context.md")
+        print("  - .swiftnest/state.json")
+        print("  - .swiftnest/rendered_context.md")
         if result.workflows.contains("onboarding-review") {
-            print("  - .ai-harness/workflows/onboarding-review.md")
+            print("  - .swiftnest/workflows/onboarding-review.md")
         }
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisHeader))
         print(SwiftNestLocalizer.text(.onboardingHowAgentsUseThisLine1))
