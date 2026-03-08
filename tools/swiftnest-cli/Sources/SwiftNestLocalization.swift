@@ -74,6 +74,7 @@ enum SwiftNestMessageKey: Hashable {
     case onboardingNextStepReviewAgents
     case onboardingNextStepReviewWorkflow
     case onboardingNextStepReviewGoals
+    case onboardingNextStepCodexSkills
     case onboardingNextStepAgentRoot
     case onboardingConfigPromptHeader
     case onboardingPromptProjectName
@@ -237,6 +238,7 @@ enum SwiftNestLocalizer {
             .onboardingNextStepReviewAgents: "- Review AGENTS.md to confirm the generated operating instructions.",
             .onboardingNextStepReviewWorkflow: "- Ask your AI agent to start with .swiftnest/workflows/onboarding-review.md.",
             .onboardingNextStepReviewGoals: "- That review should verify config/project.yaml, selected skills, and workflows against the real repository.",
+            .onboardingNextStepCodexSkills: "- If you use Codex, complete any additional Codex skill onboarding now. SwiftNest renders Docs/AI_SKILLS/* and .swiftnest/selected_skills.txt, but does not auto-register those skills in Codex yet.",
             .onboardingNextStepAgentRoot: "- Start your AI task from %@ so the global swiftnest command and generated docs are available.",
             .onboardingConfigPromptHeader: "Create config/project.yaml for this repository. Press Enter to accept inferred defaults.",
             .onboardingPromptProjectName: "Project name",
@@ -389,6 +391,7 @@ enum SwiftNestLocalizer {
             .onboardingNextStepReviewAgents: "- 생성된 운영 지침이 맞는지 AGENTS.md를 검토하세요.",
             .onboardingNextStepReviewWorkflow: "- AI 에이전트에게 .swiftnest/workflows/onboarding-review.md부터 시작하라고 요청하세요.",
             .onboardingNextStepReviewGoals: "- 그 검토에서는 config/project.yaml, 선택한 스킬, 워크플로가 실제 저장소와 맞는지 확인해야 합니다.",
+            .onboardingNextStepCodexSkills: "- Codex를 사용한다면 지금 추가 Codex 스킬 온보딩을 진행하세요. SwiftNest는 Docs/AI_SKILLS/* 와 .swiftnest/selected_skills.txt 를 생성하지만, 해당 스킬을 Codex에 자동 등록하지는 않습니다.",
             .onboardingNextStepAgentRoot: "- %@ 루트에서 AI 작업을 시작하면 전역 swiftnest 명령과 생성된 문서를 바로 사용할 수 있습니다.",
             .onboardingConfigPromptHeader: "이 저장소용 config/project.yaml을 만듭니다. Enter를 누르면 추론한 기본값을 사용합니다.",
             .onboardingPromptProjectName: "프로젝트 이름",

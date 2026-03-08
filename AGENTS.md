@@ -22,6 +22,11 @@ You are working in the SwiftNest starter and CLI codebase.
 3. Read the relevant files under `Docs/AI_SKILLS/`.
 4. When the task matches a workflow below, read the corresponding file under `.swiftnest/workflows/`.
 
+## Branch and PR Workflow
+- For all normal work, create a topic branch and deliver the change through a PR.
+- Do not do feature, bug fix, or refactor work directly on `main`.
+- The only exceptions are release follow-up tasks such as version bumps, Git tags, and Homebrew formula/tap updates.
+
 ## Workflow Entry Points
 - `add-feature`: Use for new CLI behavior, starter template capabilities, or packaging-visible additions. Read `.swiftnest/workflows/add-feature.md`.
 - `fix-bug`: Use for CLI regressions, bootstrap/install issues, or packaging repairs. Read `.swiftnest/workflows/fix-bug.md`.
