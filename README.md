@@ -25,7 +25,8 @@ SwiftNest generates project-facing documents and state files like this:
 AGENTS.md
 .agents/
   skills/
-    swiftnest-.../SKILL.md   # optional when --skill-agent codex is selected
+    swiftnest-.../SKILL.md   # generated from selected Docs/AI_SKILLS when --skill-agent codex is selected
+    swift-master/...         # bundled Codex skills from oozoofrog/codex-skills
 Docs/
   AI_RULES.md
   AI_WORKFLOWS.md
@@ -265,7 +266,7 @@ Managed target repositories no longer receive a repo-local CLI wrapper or `tools
 - Stronger expectations around risks, privacy, performance, and state transitions
 - Adds more explicit delivery discipline
 
-## Available Skills
+## Selectable Harness Skills
 
 - `ios-architecture`
 - `swiftui-rules`
@@ -275,6 +276,17 @@ Managed target repositories no longer receive a repo-local CLI wrapper or `tools
 - `networking-rules`
 - `testing-rules`
 - `logging-rules`
+
+## Bundled Shared Codex Skills
+
+When `--skill-agent codex` is selected, SwiftNest also installs bundled shared Codex skills from [oozoofrog/codex-skills](https://github.com/oozoofrog/codex-skills):
+
+- `claude-code-bridge`
+- `ghostty-setup`
+- `ios-app-store-release`
+- `ios-multi-agent-dev`
+- `ios-swift-orchestrator`
+- `swift-master`
 
 ### Recommended Set for a Typical SwiftUI App
 
@@ -340,6 +352,7 @@ Other files in `.swiftnest/`:
 - `workflows/*.md`
 
 When `--skill-agent codex` is selected, SwiftNest also installs repo-local Codex bundles under `.agents/skills/`.
+That includes generated `swiftnest-*` bundles for the selected `Docs/AI_SKILLS/*` files and bundled shared skills from [oozoofrog/codex-skills](https://github.com/oozoofrog/codex-skills) such as `swift-master`, `ios-swift-orchestrator`, and `claude-code-bridge`.
 
 Paths inside the state file are stored relative to the repository when possible, so SwiftNest survives being moved to another machine.
 

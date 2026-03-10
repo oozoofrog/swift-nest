@@ -45,6 +45,7 @@ class Swiftnest < Formula
     assert_predicate target/".swiftnest/selected_skill_agent.txt", :exist?
     assert_predicate target/".swiftnest/workflows/onboarding-review.md", :exist?
     assert_predicate target/".agents/skills/swiftnest-ios-architecture/SKILL.md", :exist?
+    assert_predicate target/".agents/skills/swift-master/SKILL.md", :exist?
     assert_predicate target/"profiles/advanced.yaml", :exist?
     assert_predicate target/"templates/Docs/AI_RULES.md", :exist?
     refute_predicate target/"swiftnest", :exist?

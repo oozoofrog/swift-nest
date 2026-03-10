@@ -1213,14 +1213,16 @@ enum SwiftNestCLI {
         repository: SwiftNestRepository
     ) throws {
         let fileManager = repository.fileManager
-        let resourceRootURL = repository.resourcesURL.appendingPathComponent("agents/codex/skills", isDirectory: true)
+        let generatedResourceRootURL = repository.resourcesURL.appendingPathComponent("agents/codex/skills", isDirectory: true)
+        let bundledSkillSources = try bundledCodexSkillSourceDirectories(repository: repository)
         let repoLocalCustomSkills = try repoLocalCustomSkillNames(repository: repository)
 
         var preparedBundles: [(name: String, destinationDirectoryURL: URL, rendered: String)] = []
+        var bundledCopies: [(name: String, sourceDirectoryURL: URL, destinationDirectoryURL: URL)] = []
         var installedDirectories: [String] = []
         for skill in skills.sorted() {
             let slug = "swiftnest-\(skill)"
-            let templateURL = resourceRootURL.appendingPathComponent("\(skill)/SKILL.md")
+            let templateURL = generatedResourceRootURL.appendingPathComponent("\(skill)/SKILL.md")
             let destinationDirectoryURL = repository.agentSkillsDirectoryURL.appendingPathComponent(slug, isDirectory: true)
             if !fileManager.fileExists(atPath: templateURL.path) {
                 if repoLocalCustomSkills.contains(skill),
@@ -1250,6 +1252,15 @@ enum SwiftNestCLI {
             installedDirectories.append(slug)
         }
 
+        for bundledSkillSource in bundledSkillSources {
+            let destinationDirectoryURL = repository.agentSkillsDirectoryURL.appendingPathComponent(
+                bundledSkillSource.name,
+                isDirectory: true
+            )
+            bundledCopies.append((bundledSkillSource.name, bundledSkillSource.sourceDirectoryURL, destinationDirectoryURL))
+            installedDirectories.append(bundledSkillSource.name)
+        }
+
         try cleanupCodexSkillEnvironment(repository: repository)
         try fileManager.createDirectory(at: repository.agentSkillsDirectoryURL, withIntermediateDirectories: true)
         for bundle in preparedBundles {
@@ -1260,15 +1271,52 @@ enum SwiftNestCLI {
                 encoding: .utf8
             )
         }
+        for bundle in bundledCopies {
+            try fileManager.copyItem(at: bundle.sourceDirectoryURL, to: bundle.destinationDirectoryURL)
+        }
 
         try fileManager.createDirectory(at: repository.agentSkillStateDirectoryURL, withIntermediateDirectories: true)
-        let manifest = SwiftNestAgentSkillManifest(agent: SwiftNestSkillAgent.codex.rawValue, installedDirectories: installedDirectories)
+        let manifest = SwiftNestAgentSkillManifest(
+            agent: SwiftNestSkillAgent.codex.rawValue,
+            installedDirectories: installedDirectories.sorted()
+        )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(manifest).write(
             to: repository.agentSkillStateDirectoryURL.appendingPathComponent("codex_manifest.json"),
             options: .atomic
         )
+    }
+
+    static func bundledCodexSkillSourceDirectories(
+        repository: SwiftNestRepository
+    ) throws -> [(name: String, sourceDirectoryURL: URL)] {
+        let fileManager = repository.fileManager
+        let bundledRootURL = repository.resourcesURL.appendingPathComponent("agents/codex/bundled-skills", isDirectory: true)
+        guard fileManager.fileExists(atPath: bundledRootURL.path) else {
+            return []
+        }
+
+        let contents = try fileManager.contentsOfDirectory(
+            at: bundledRootURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+
+        return try contents.compactMap { directoryURL in
+            let resourceValues = try directoryURL.resourceValues(forKeys: [.isDirectoryKey])
+            guard resourceValues.isDirectory == true else {
+                return nil
+            }
+
+            let skillURL = directoryURL.appendingPathComponent("SKILL.md")
+            guard fileManager.fileExists(atPath: skillURL.path) else {
+                return nil
+            }
+
+            return (directoryURL.lastPathComponent, directoryURL)
+        }
+        .sorted { $0.name < $1.name }
     }
 
     static func cleanupCodexSkillEnvironment(repository: SwiftNestRepository) throws {

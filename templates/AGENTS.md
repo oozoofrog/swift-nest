@@ -9,6 +9,7 @@ You are working in the {{PROJECT_NAME}} codebase scaffolded by SwiftNest.
 - Keep the diff minimal and reviewable.
 - Run or describe verification before finishing.
 - If the user asks for a review, lead with findings first.
+- Review results must always be provided in Korean unless the user explicitly requests another language.
 
 ## Project Context
 - Architecture: {{ARCHITECTURE_STYLE}}

@@ -7,7 +7,7 @@ This directory contains the release-time Homebrew formula template for SwiftNest
 - `swiftnest.rb.template`: starter formula that should be copied into the separate tap repository as `Formula/swiftnest.rb`
 - `render_formula.sh`: renders the template with a concrete Git tag archive and SHA256
 - Homebrew installs should also ship a `VERSION` file in `libexec` so `swiftnest --version` / `swiftnest -v` can report the packaged release version exactly
-- Homebrew installs should also ship `resources/agents/...` so `swiftnest onboard --skill-agent codex` can render repo-local agent skill bundles
+- Homebrew installs should also ship `resources/agents/...`, including `resources/agents/codex/bundled-skills/...`, so `swiftnest onboard --skill-agent codex` can render repo-local generated bundles and bundled shared Codex skills
 
 ## Release Checklist
 
