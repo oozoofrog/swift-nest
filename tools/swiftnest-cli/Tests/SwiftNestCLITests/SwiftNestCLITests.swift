@@ -1905,6 +1905,7 @@ final class SwiftNestCLITests: XCTestCase {
         var environment = ProcessInfo.processInfo.environment
         environment["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
         environment["SWIFTNEST_BUILD_LOCK_TIMEOUT_SECONDS"] = "1"
+        environment["SWIFTNEST_LANG"] = "en"
         process.environment = environment
 
         let stderrPipe = Pipe()
