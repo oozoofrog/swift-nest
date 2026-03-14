@@ -9,7 +9,7 @@ Examples:
   ./packaging/homebrew/render_formula.sh \
     --tag v0.1.0 \
     --archive /tmp/swift-nest-v0.1.0.tar.gz \
-    --output /tmp/homebrew-swiftnest/Formula/swiftnest.rb
+    --output /tmp/homebrew-tap/Formula/swiftnest.rb
 EOF
 }
 
