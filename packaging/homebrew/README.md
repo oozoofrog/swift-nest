@@ -16,7 +16,7 @@ Release the Homebrew formula in this order:
 1. Create and push a new Git tag from `swift-nest`.
 2. Download the matching tag archive from GitHub.
 3. Compute the archive SHA256.
-4. Render the formula into the tap repository, typically `oozoofrog/homebrew-swiftnest`.
+4. Render the formula into the tap repository, typically `oozoofrog/homebrew-tap`.
 
 For the feature-to-release handoff sequence after work lands on `main`, see the repository `AGENTS.md`.
 
@@ -24,7 +24,7 @@ For the feature-to-release handoff sequence after work lands on `main`, see the 
    ./packaging/homebrew/render_formula.sh \
      --tag v0.1.3 \
      --archive /tmp/swift-nest-v0.1.3.tar.gz \
-     --output /path/to/homebrew-swiftnest/Formula/swiftnest.rb
+     --output /path/to/homebrew-tap/Formula/swiftnest.rb
    ```
 
    or
@@ -33,14 +33,14 @@ For the feature-to-release handoff sequence after work lands on `main`, see the 
    make render-homebrew-formula \
      RELEASE_TAG=v0.1.3 \
      RELEASE_ARCHIVE=/tmp/swift-nest-v0.1.3.tar.gz \
-     FORMULA_OUTPUT=/path/to/homebrew-swiftnest/Formula/swiftnest.rb
+     FORMULA_OUTPUT=/path/to/homebrew-tap/Formula/swiftnest.rb
    ```
 
 5. Commit the rendered formula to the tap repository.
 6. Verify with:
 
    ```bash
-   brew tap oozoofrog/swiftnest https://github.com/oozoofrog/homebrew-swiftnest
+   brew tap oozoofrog/tap https://github.com/oozoofrog/homebrew-tap
    brew install swiftnest
    swiftnest --version
    swiftnest onboard --target /tmp/sample-repo --skill-agent codex --non-interactive

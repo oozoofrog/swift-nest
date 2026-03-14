@@ -77,7 +77,7 @@ swiftnest onboard \
 
 ## Homebrew 패키징
 
-SwiftNest는 별도 tap 저장소(예: `oozoofrog/homebrew-swiftnest`)에서 사용할 Homebrew 패키징 자산을 `packaging/homebrew/` 아래에 함께 제공합니다.
+SwiftNest는 별도 tap 저장소(예: `oozoofrog/homebrew-tap`)에서 사용할 Homebrew 패키징 자산을 `packaging/homebrew/` 아래에 함께 제공합니다.
 
 권장 릴리즈 흐름:
 
@@ -92,7 +92,7 @@ SwiftNest는 별도 tap 저장소(예: `oozoofrog/homebrew-swiftnest`)에서 사
 tap 이 공개된 이후 기대하는 설치 흐름은 아래와 같습니다.
 
 ```bash
-brew tap oozoofrog/swiftnest https://github.com/oozoofrog/homebrew-swiftnest
+brew tap oozoofrog/tap https://github.com/oozoofrog/homebrew-tap
 brew install swiftnest
 swiftnest onboard --target /path/to/current-ios-repo
 ```

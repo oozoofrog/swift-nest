@@ -77,7 +77,7 @@ When you omit `--target`, SwiftNest first looks for the current SwiftNest-manage
 
 ## Homebrew Packaging
 
-SwiftNest ships Homebrew packaging assets under `packaging/homebrew/` for a separate tap repository such as `oozoofrog/homebrew-swiftnest`.
+SwiftNest ships Homebrew packaging assets under `packaging/homebrew/` for a separate tap repository such as `oozoofrog/homebrew-tap`.
 
 Recommended release flow:
 
@@ -92,7 +92,7 @@ For the end-to-end release sequence to run after a feature lands on `main`, foll
 Once the tap is published, the intended install flow is:
 
 ```bash
-brew tap oozoofrog/swiftnest https://github.com/oozoofrog/homebrew-swiftnest
+brew tap oozoofrog/tap https://github.com/oozoofrog/homebrew-tap
 brew install swiftnest
 swiftnest onboard --target /path/to/current-ios-repo
 ```
